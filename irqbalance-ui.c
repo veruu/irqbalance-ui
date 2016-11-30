@@ -1,0 +1,143 @@
+
+#include <errno.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#include "irqbalance-ui.h"
+
+/* FIXME */
+char *EXAMPLE = "TYPE 3 NUMBER -1 LOAD 0 SAVE_MODE 0 TYPE 2 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 48 LOAD 0 DIFF 0 IRQ 47 LOAD 0 DIFF 0 IRQ 41 LOAD 0 DIFF 0 IRQ 40 LOAD 0 DIFF 0 IRQ 12 LOAD 0 DIFF 882 IRQ 9 LOAD 0 DIFF 0 IRQ 8 LOAD 0 DIFF 0 IRQ 1 LOAD 0 DIFF 52 IRQ 0 LOAD 0 DIFF 0 IRQ 45 LOAD 0 DIFF 0 TYPE 1 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 17 LOAD 0 DIFF 0 IRQ 18 LOAD 0 DIFF 0 TYPE 0 NUMBER 3 LOAD 0 SAVE_MODE 0 IRQ 50 LOAD 0 DIFF 47 TYPE 0 NUMBER 2 LOAD 0 SAVE_MODE 0 IRQ 46 LOAD 0 DIFF 311 TYPE 1 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 43 LOAD 0 DIFF 0 IRQ 23 LOAD 0 DIFF 0 TYPE 0 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186\0";
+/* FIXME logging instead of printf */
+
+
+int init_connection()
+{
+    struct sockaddr_un addr;
+
+    int socket_fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if(socket_fd < 0) {
+        perror("Error opening socket.");
+        return 0;
+    }
+    addr.sun_family = AF_UNIX;
+    strcpy(addr.sun_path, SOCKET_PATH);
+    addr.sun_path[strlen(addr.sun_path)] = '\0';
+
+    if(connect(socket_fd,
+               (struct sockaddr *)&addr,
+               sizeof(struct sockaddr_un)) < 0) {
+        perror("Error connecting to socket.");
+        return 0;
+    }
+    return socket_fd;
+}
+
+int send_settings(char *data)
+{
+    /* send "settings sleep X" to set sleep interval, "settings ban irqs X Y..."
+     * to ban IRQs from balancing
+     */
+    int socket_fd = init_connection();
+    if(!socket_fd) {
+        return 1;
+    }
+    send(socket_fd, data, strlen(data), 0);
+
+    close(socket_fd);
+    return 0;
+}
+
+char * get_data(char *string)
+{
+    /* send "setup" to get sleep interval, banned IRQs and banned CPUs,
+     * "stats" to get CPU tree statistics
+     */
+    int socket_fd = init_connection();
+    if(!socket_fd) {
+        return NULL;
+    }
+    char *data = malloc(2048 * sizeof(char));
+    send(socket_fd, string, strlen(string), 0);
+    int len = recv(socket_fd, data, 2048, 0);
+    close(socket_fd);
+    data[len] = '\0';
+    return data;
+}
+
+void parse_into_tree(char *data)
+{
+    char *token, *ptr;
+    cpu_node_t *parent = NULL;
+    /* Leave data unchanged for further comparison */
+    char copy[strlen(data) + 1];
+    strncpy(copy, data, strlen(data) + 1);
+
+    token = strtok_r(copy, " ", &ptr);
+    while(token != NULL) {
+        /* Parse node data */
+        if(strncmp(token, "TYPE", strlen("TYPE"))) goto out;
+        cpu_node_t *new = malloc(sizeof(cpu_node_t));
+        new->type = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        if(new->type == OBJ_TYPE_NODE) {
+            parent = NULL;
+        } else if(new->type >= parent->type) {
+            parent = parent->parent;
+        }
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "NUMBER", strlen("NUMBER"))) goto out;
+        new->number = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "LOAD", strlen("LOAD"))) goto out;
+        new->load = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "SAVE_MODE", strlen("SAVE_MODE"))) goto out;
+        new->is_powersave = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+
+        /* Parse assigned IRQ data */
+        while((token != NULL) && (!strncmp(token, "IRQ", strlen("IRQ")))) {
+            irq_t *new_irq = malloc(sizeof(irq_t));
+            new_irq->vector = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+            token = strtok_r(ptr, " ", &ptr);
+            if(strncmp(token, "LOAD", strlen("LOAD"))) goto out;
+            new_irq->load = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+            token = strtok_r(ptr, " ", &ptr);
+            if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
+            new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+            new->irqs = g_list_append(new->irqs, new_irq);
+            token = strtok_r(ptr, " ", &ptr);
+        }
+
+        if((token == NULL) || (strncmp(token, "IRQ", strlen("IRQ")))) {
+            new->parent = parent;
+            if(parent == NULL) {
+                tree = g_list_append(tree, new);
+            } else {
+                parent->children = g_list_append(parent->children, new);
+            }
+            if(new->type != OBJ_TYPE_CPU) {
+                parent = new;
+            }
+        }
+    }
+    return;
+
+out:
+    /* Invalid data presented */
+    printf("Invalid data sent. Unexpected token: %s\n", token);
+    g_list_free(tree);
+}
+
+int main()
+{
+
+
+    parse_into_tree(EXAMPLE);
+    dump_tree();
+    return EXIT_SUCCESS;
+}
