@@ -8,12 +8,18 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <curses.h>
+#include <ncurses.h>
+
 #include "irqbalance-ui.h"
+#include "ui.h"
+#include "helpers.h"
 
 /* FIXME */
-char *EXAMPLE = "TYPE 3 NUMBER -1 LOAD 0 SAVE_MODE 0 TYPE 2 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 48 LOAD 0 DIFF 0 IRQ 47 LOAD 0 DIFF 0 IRQ 41 LOAD 0 DIFF 0 IRQ 40 LOAD 0 DIFF 0 IRQ 12 LOAD 0 DIFF 882 IRQ 9 LOAD 0 DIFF 0 IRQ 8 LOAD 0 DIFF 0 IRQ 1 LOAD 0 DIFF 52 IRQ 0 LOAD 0 DIFF 0 IRQ 45 LOAD 0 DIFF 0 TYPE 1 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 17 LOAD 0 DIFF 0 IRQ 18 LOAD 0 DIFF 0 TYPE 0 NUMBER 3 LOAD 0 SAVE_MODE 0 IRQ 50 LOAD 0 DIFF 47 TYPE 0 NUMBER 2 LOAD 0 SAVE_MODE 0 IRQ 46 LOAD 0 DIFF 311 TYPE 1 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 43 LOAD 0 DIFF 0 IRQ 23 LOAD 0 DIFF 0 TYPE 0 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186\0";
+char *irqbalance_data = "TYPE 3 NUMBER -1 LOAD 0 SAVE_MODE 0 TYPE 2 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 48 LOAD 0 DIFF 0 IRQ 47 LOAD 0 DIFF 0 IRQ 41 LOAD 0 DIFF 0 IRQ 40 LOAD 0 DIFF 0 IRQ 12 LOAD 0 DIFF 882 IRQ 9 LOAD 0 DIFF 0 IRQ 8 LOAD 0 DIFF 0 IRQ 1 LOAD 0 DIFF 52 IRQ 0 LOAD 0 DIFF 0 IRQ 45 LOAD 0 DIFF 0 TYPE 1 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 17 LOAD 0 DIFF 0 IRQ 18 LOAD 0 DIFF 0 TYPE 0 NUMBER 3 LOAD 0 SAVE_MODE 0 IRQ 50 LOAD 0 DIFF 47 TYPE 0 NUMBER 2 LOAD 0 SAVE_MODE 0 IRQ 46 LOAD 0 DIFF 311 TYPE 1 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 43 LOAD 0 DIFF 0 IRQ 23 LOAD 0 DIFF 0 TYPE 0 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186\0";
 /* FIXME logging instead of printf */
 
+GList *tree = NULL;
 
 int init_connection()
 {
@@ -21,7 +27,7 @@ int init_connection()
 
     int socket_fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     if(socket_fd < 0) {
-        perror("Error opening socket.");
+        perror("Error opening socket");
         return 0;
     }
     addr.sun_family = AF_UNIX;
@@ -31,7 +37,7 @@ int init_connection()
     if(connect(socket_fd,
                (struct sockaddr *)&addr,
                sizeof(struct sockaddr_un)) < 0) {
-        perror("Error connecting to socket.");
+        perror("Error connecting to socket");
         return 0;
     }
     return socket_fd;
@@ -135,9 +141,29 @@ out:
 
 int main()
 {
+    //char *irqbalance_data = get_data(STATS);
+    parse_into_tree(irqbalance_data);
 
+    init();
 
-    parse_into_tree(EXAMPLE);
-    dump_tree();
-    return EXIT_SUCCESS;
+    while(1) {
+        int i = 0;
+    }
+
+    /*int num = 0;
+    for (;;)
+    {
+        int c = getch();
+        attrset(COLOR_PAIR(num % 4));
+        num++;
+    }*/
+    //dump_tree();
+    //display_tree();
+
+    //show matrix
+    //getchar
+    //switch display
+    //display handler to handle input
+
+    close_window(0);
 }

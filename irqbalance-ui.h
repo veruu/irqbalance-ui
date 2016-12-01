@@ -2,13 +2,24 @@
 #ifndef IRQBALANCE_UI_H
 #define IRQBALANCE_UI_H
 
+#include <stdio.h>
+#include <stdint.h>
 #include <glib.h>
 #include <glib-unix.h>
 
 #define SOCKET_PATH "/var/run/irqbalance.sock"
 
-GList *tree = NULL;
+#define STATS "stats"
+#define SET_SLEEP "settings sleep "
+#define BAN_IRQS "settings ban irqs "
+#define SETUP "setup"
 
+
+/*extern void init();
+extern void display_tree();
+extern void display_matrix();
+extern void close_window(int sig);
+*/
 /* typedefs */
 
 typedef enum node_type {
@@ -35,54 +46,13 @@ typedef struct cpu_node {
 } cpu_node_t;
 
 
-/* helper functions */
-
-void for_each_irq(GList *list,
-        void (*fp)(irq_t *node, void *data), void *data)
-{
-    GList *entry, *next;
-    entry = g_list_first(list);
-    while(entry) {
-        next = g_list_next(entry);
-        fp(entry->data, data);
-        entry = next;
-    }
-}
-
-void for_each_node(GList *list,
-        void (*fp)(cpu_node_t *node, void *data), void *data)
-{
-    GList *entry, *next;
-    entry = g_list_first(list);
-    while(entry) {
-        next = g_list_next(entry);
-        fp(entry->data, data);
-        entry = next;
-    }
-}
 
 
-/* programmer debugging functions */
+int init_connection();
+int send_settings(char *data);
+char * get_data(char *string);
+void parse_into_tree(char *data);
+int main();
 
-void dump_irq(irq_t *irq, void *data __attribute__((unused)))
-{
-    printf("IRQ %lu\n", irq->vector);
-}
-
-void dump_node(cpu_node_t *node, void *data __attribute__((unused)))
-{
-    printf("TYPE %d NUMBER %d\n", node->type, node->number);
-    if(g_list_length(node->irqs) > 0) {
-        for_each_irq(node->irqs, dump_irq, NULL);
-    }
-    if(g_list_length(node->children) > 0) {
-        for_each_node(node->children, dump_node, NULL);
-    }
-}
-
-void dump_tree()
-{
-    for_each_node(tree, dump_node, NULL);
-}
 
 #endif /* IRQBALANCE_UI_H */
