@@ -45,7 +45,11 @@ typedef struct cpu_node {
     GList *irqs;
 } cpu_node_t;
 
-
+typedef struct setup {
+    uint64_t sleep;
+    GList *banned_irqs;
+    GList *banned_cpus;
+} setup_t;
 
 
 int init_connection();

@@ -16,10 +16,12 @@
 #include "helpers.h"
 
 /* FIXME */
+char *setup_data = "SLEEP 10 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186 BANNED 00000001\0";
 char *irqbalance_data = "TYPE 3 NUMBER -1 LOAD 0 SAVE_MODE 0 TYPE 2 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 48 LOAD 0 DIFF 0 IRQ 47 LOAD 0 DIFF 0 IRQ 41 LOAD 0 DIFF 0 IRQ 40 LOAD 0 DIFF 0 IRQ 12 LOAD 0 DIFF 882 IRQ 9 LOAD 0 DIFF 0 IRQ 8 LOAD 0 DIFF 0 IRQ 1 LOAD 0 DIFF 52 IRQ 0 LOAD 0 DIFF 0 IRQ 45 LOAD 0 DIFF 0 TYPE 1 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 17 LOAD 0 DIFF 0 IRQ 18 LOAD 0 DIFF 0 TYPE 0 NUMBER 3 LOAD 0 SAVE_MODE 0 IRQ 50 LOAD 0 DIFF 47 TYPE 0 NUMBER 2 LOAD 0 SAVE_MODE 0 IRQ 46 LOAD 0 DIFF 311 TYPE 1 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 43 LOAD 0 DIFF 0 IRQ 23 LOAD 0 DIFF 0 TYPE 0 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186\0";
 /* FIXME logging instead of printf */
 
 GList *tree = NULL;
+setup_t setup;
 
 int init_connection()
 {
@@ -79,7 +81,6 @@ void parse_into_tree(char *data)
 {
     char *token, *ptr;
     cpu_node_t *parent = NULL;
-    /* Leave data unchanged for further comparison */
     char copy[strlen(data) + 1];
     strncpy(copy, data, strlen(data) + 1);
 
@@ -88,6 +89,8 @@ void parse_into_tree(char *data)
         /* Parse node data */
         if(strncmp(token, "TYPE", strlen("TYPE"))) goto out;
         cpu_node_t *new = malloc(sizeof(cpu_node_t));
+        new->irqs = NULL;
+        new->children = NULL;
         new->type = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
         if(new->type == OBJ_TYPE_NODE) {
             parent = NULL;
@@ -139,24 +142,83 @@ out:
     g_list_free(tree);
 }
 
+void parse_setup(char *setup_data)
+{
+    char *token, *ptr;
+    char copy[strlen(setup_data) + 1];
+    strncpy(copy, setup_data, strlen(setup_data) + 1);
+    setup.banned_irqs = NULL;
+    setup.banned_cpus = NULL;
+    token = strtok_r(copy, " ", &ptr);
+    if(strncmp(token, "SLEEP", strlen("SLEEP"))) goto out;
+    setup.sleep = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+    token = strtok_r(ptr, " ", &ptr);
+    /* Parse banned IRQ data */
+    while(!strncmp(token, "IRQ", strlen("IRQ"))) {
+        irq_t *new_irq = malloc(sizeof(irq_t));
+        new_irq->vector = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "LOAD", strlen("LOAD"))) goto out;
+        new_irq->load = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
+        new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        setup.banned_irqs = g_list_append(setup.banned_irqs, new_irq);
+        token = strtok_r(ptr, " ", &ptr);
+    }
+
+    if(strncmp(token, "BANNED", strlen("BANNED"))) goto out;
+    token = strtok_r(ptr, " ", &ptr);
+    for(int i = strlen(token) - 1; i >= 0; i--) {
+        char *map = hex_to_bitmap(token[i]);
+        for(int j = 4; j >= 0; j--) {
+            if(map[j] == '1') {
+                uint64_t *banned_cpu = malloc(sizeof(uint64_t));
+                *banned_cpu = (4 * (strlen(token) - (i + 1)) + (4 - (j + 1)));
+                setup.banned_cpus = g_list_append(setup.banned_cpus,
+                                                  banned_cpu);
+            }
+        }
+    }
+    return;
+
+out:
+    /* Invalid data presented */
+    printf("Invalid data sent. Unexpected token: %s\n", token);
+}
+
 int main()
 {
+    //char *setup_data = get_data(SETUP);
+    parse_setup(setup_data);
     //char *irqbalance_data = get_data(STATS);
     parse_into_tree(irqbalance_data);
 
     init();
 
     while(1) {
-        int i = 0;
+        int c = getch();
+        switch(c) {
+        case 'q':
+            close_window(0);
+            break;
+        case KEY_F(2):
+            display_matrix();
+            break;
+        case KEY_F(3):
+            display_tree();
+            break;
+        case KEY_F(4):
+            settings();
+            break;
+        case KEY_F(5):
+            setup_irqs();
+            break;
+        default:
+            break;
+        }
     }
 
-    /*int num = 0;
-    for (;;)
-    {
-        int c = getch();
-        attrset(COLOR_PAIR(num % 4));
-        num++;
-    }*/
     //dump_tree();
     //display_tree();
 
@@ -164,6 +226,4 @@ int main()
     //getchar
     //switch display
     //display handler to handle input
-
-    close_window(0);
 }
