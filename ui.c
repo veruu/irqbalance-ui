@@ -97,9 +97,8 @@ int get_valid_sleep_input(int column_offest)
             curs_set(0);
             attrset(COLOR_PAIR(1));
             mvaddstr(0, column_offest, "                 ");
-            mvprintw(0, column_offest, "%d", setup.sleep);
+            mvprintw(0, column_offest, "%lu", new_sleep);
             move(LINES, COLS);
-            new_sleep = setup.sleep;
             break;
         }
         attrset(COLOR_PAIR(1));
@@ -120,8 +119,10 @@ int get_valid_sleep_input(int column_offest)
             mvaddstr(LINES - 2, 0, message);
             refresh();
         }
-
     }
+
+    attrset(COLOR_PAIR(1));
+    mvprintw(0, column_offest, "%lu                              ", new_sleep);
 
     return new_sleep;
 }
@@ -156,6 +157,7 @@ void settings()
                                                         ");
             uint64_t new_sleep = get_valid_sleep_input(sleep_input_offset);
             if(new_sleep != setup.sleep) {
+                setup.sleep = new_sleep;
                 char settings_data[128];
                 snprintf(settings_data, 128, "settings sleep %lu", new_sleep);
                 send_settings(settings_data);
