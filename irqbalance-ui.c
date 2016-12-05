@@ -196,14 +196,12 @@ int main()
 
     init();
 
-    while(1) {
+    int loop = 1;
+    while(loop) {
         int c = getch();
         switch(c) {
         case 'q':
-            close_window(0);
-            break;
-        case KEY_F(2):
-            display_matrix();
+            loop = 0;
             break;
         case KEY_F(3):
             display_tree();
@@ -219,11 +217,5 @@ int main()
         }
     }
 
-    //dump_tree();
-    //display_tree();
-
-    //show matrix
-    //getchar
-    //switch display
-    //display handler to handle input
+    close_window(0);
 }
