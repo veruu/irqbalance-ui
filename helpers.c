@@ -4,7 +4,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "helpers.h"
+#include "ui.h"
 
+
+gint sort_all_cpus(gconstpointer First, gconstpointer Second)
+{
+    cpu_ban_t *first, *second;
+    first = (cpu_ban_t *)First;
+    second = (cpu_ban_t *)Second;
+
+    if(first->number < second->number) {
+        return -1;
+    }
+    if(first->number == second->number) {
+        /* This should never happen */
+        return 0;
+    }
+    if(first->number > second->number) {
+        return 1;
+    }
+    return 1;
+}
 
 char * hex_to_bitmap(char hex_digit) {
     uint8_t digit;
@@ -25,39 +45,56 @@ char * hex_to_bitmap(char hex_digit) {
     return bitmap;
 }
 
+gpointer copy_cpu_ban (gconstpointer src, gpointer data)
+{
+    cpu_ban_t *old = (cpu_ban_t *)src; 
+    cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
+    new->number = old->number;
+    new->is_banned = old->is_banned;
+    return new;
+}
+
+void for_each_cpu(GList *list, void (*fp)(cpu_ban_t *cpu, void *data),
+                  void *data)
+{
+    GList *entry;
+    entry = g_list_first(list);
+    while(entry) {
+        fp(entry->data, data);
+        entry = g_list_next(entry);
+    }
+}
+
 void for_each_banned_cpu(GList *list,
         void (*fp)(uint64_t *number, void *data), void *data)
 {
-    GList *entry, *next;
+    GList *entry;
     entry = g_list_first(list);
     while(entry) {
-        next = g_list_next(entry);
         fp(entry->data, data);
-        entry = next;
+        entry = g_list_next(entry);
     }
 }
 
 void for_each_irq(GList *list,
         void (*fp)(irq_t *irq, void *data), void *data)
 {
-    GList *entry, *next;
+    GList *entry;
     entry = g_list_first(list);
     while(entry) {
-        next = g_list_next(entry);
         fp(entry->data, data);
-        entry = next;
+        entry = g_list_next(entry);
     }
 }
 
 void for_each_node(GList *list,
         void (*fp)(cpu_node_t *node, void *data), void *data)
 {
-    GList *entry, *next;
+    GList *entry;
     entry = g_list_first(list);
     while(entry) {
-        next = g_list_next(entry);
         fp(entry->data, data);
-        entry = next;
+        entry = g_list_next(entry);
     }
 }
 

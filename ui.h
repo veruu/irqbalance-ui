@@ -18,9 +18,16 @@ extern setup_t setup;
 void show_footer();
 void add_banned_cpu(uint64_t *banned_cpu, void *data);
 void display_banned_cpus();
-char * check_control_in_input(int max_len, int column_offest, int line_offset);
+char * check_control_in_sleep_input(int max_len,
+                                    int column_offest,
+                                    int line_offset);
 int get_valid_sleep_input(int column_offest);
+int toggle_cpu(GList *cpu_list, int cpu_number);
+void handle_banning();
 void init();
+void get_cpu();
+void print_cpu_line(cpu_ban_t *cpu, void *data;);
+void print_all_cpus();
 void close_window(int sig);
 void settings();
 void setup_irqs();

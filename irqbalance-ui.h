@@ -45,6 +45,11 @@ typedef struct cpu_node {
     GList *irqs;
 } cpu_node_t;
 
+typedef struct cpu_ban {
+    uint64_t number;
+    char is_banned;
+} cpu_ban_t;
+
 typedef struct setup {
     uint64_t sleep;
     GList *banned_irqs;

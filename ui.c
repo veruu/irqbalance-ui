@@ -2,13 +2,12 @@
 #include <string.h>
 #include "ui.h"
 
-
-
-
 const char *node_type_to_str[] = {"CPU\0",
                                   "CACHE DOMAIN\0",
                                   "CPU PACKAGE\0",
                                   "NUMA NODE\0"};
+
+GList *all_cpus = NULL;
 
 void close_window(int sig)
 {
@@ -48,7 +47,7 @@ void display_banned_cpus()
     addstr(banned_cpus);
 }
 
-char * check_control_in_input(int max_len, int column_offest, int line_offset)
+char * check_control_in_sleep_input(int max_len, int column_offest, int line_offset)
 {
     char *input_to = malloc(max_len * sizeof(char));
     int iteration = 0;
@@ -92,7 +91,7 @@ int get_valid_sleep_input(int column_offest)
         refresh();
         move(0, column_offest);
         curs_set(1);
-        char *input = check_control_in_input(20, column_offest, 0);
+        char *input = check_control_in_sleep_input(20, column_offest, 0);
         if(input == NULL) {
             curs_set(0);
             attrset(COLOR_PAIR(1));
@@ -127,6 +126,148 @@ int get_valid_sleep_input(int column_offest)
     return new_sleep;
 }
 
+void get_cpu(cpu_node_t *node, void *data __attribute__((unused)))
+{
+    if(node->type == OBJ_TYPE_CPU) {
+        cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
+        new->number = node->number;
+        new->is_banned = 0;
+        all_cpus = g_list_append(all_cpus, new);
+    }
+    if(g_list_length(node->children) > 0) {
+        for_each_node(node->children, get_cpu, NULL);
+    }
+}
+
+void get_banned_cpu(uint64_t *cpu, void *data __attribute__((unused)))
+{
+    cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
+    new->number = *cpu;
+    new->is_banned = 1;
+    all_cpus = g_list_append(all_cpus, new);
+}
+
+void print_cpu_line(cpu_ban_t *cpu, void *data)
+{
+    int *line_offset = data;
+    mvprintw(*line_offset, 0, "CPU %lu", cpu->number);
+    mvprintw(*line_offset, 20, "%s", cpu->is_banned ? "YES" : "NO ");
+    (*line_offset)++;
+
+}
+
+void print_all_cpus()
+{
+    if(all_cpus == NULL) {
+        for_each_node(tree, get_cpu, NULL);
+        for_each_banned_cpu(setup.banned_cpus, get_banned_cpu, NULL);
+        all_cpus = g_list_sort(all_cpus, sort_all_cpus);
+    }
+    int *line = malloc(sizeof(int));
+    *line = 3; /* 0 for sleep interval setup, 1 free, 2 for header */
+    attrset(COLOR_PAIR(2));
+    mvprintw(2, 0, "NUMBER              IS BANNED");
+    attrset(COLOR_PAIR(3));
+    for_each_cpu(all_cpus, print_cpu_line, line);
+}
+
+int toggle_cpu(GList *cpu_list, int cpu_number)
+{
+    GList *entry = g_list_first(cpu_list);
+    cpu_ban_t *entry_data = (cpu_ban_t *)(entry->data);
+    while(entry_data->number != cpu_number) {
+        entry = g_list_next(entry);
+        entry_data = (cpu_ban_t *)(entry->data);
+    }
+    if(((cpu_ban_t *)(entry->data))->is_banned) {
+        ((cpu_ban_t *)(entry->data))->is_banned = 0;
+    } else {
+        ((cpu_ban_t *)(entry->data))->is_banned = 1;
+    }
+    return ((cpu_ban_t *)(entry->data))->is_banned;
+}
+
+void handle_banning()
+{
+    GList *tmp = g_list_copy_deep(all_cpus, copy_cpu_ban, NULL);
+    refresh();
+    char info[128];
+    attrset(COLOR_PAIR(5));
+    snprintf(info, 128, "%s\n%s",
+             "Move up and down at CPU ban list, toggle ban with Enter.",
+             "Press ESC for discarding and <S> for saving the values.");
+    mvaddstr(LINES - 3, 0, info);
+    move(3, 20);
+    curs_set(1);
+    refresh();
+    int position = 3;
+    char processing = 1;
+    while(processing) {
+        int direction = getch();
+        switch(direction) {
+        case KEY_UP:
+            if(position > 3) {
+                position--;
+                move(position, 20);
+            }
+            break;
+        case KEY_DOWN:
+            if(position <= g_list_length(all_cpus) + 1) {
+                position++;
+                move(position, 20);
+            }
+            break;
+        case '\n':
+        case '\r': {
+            attrset(COLOR_PAIR(3));
+            int banned = toggle_cpu(tmp, position - 3);
+            if(banned) {
+                mvprintw(position, 20, "YES");
+            } else {
+                mvprintw(position, 20, "NO ");
+            }
+            move(position, 20);
+            refresh();
+            break;
+        }
+        case 27:
+            curs_set(0);
+            /* Forget the changes */
+            tmp = g_list_copy_deep(all_cpus, copy_cpu_ban, NULL);
+            print_all_cpus();
+            attrset(COLOR_PAIR(0));
+            mvprintw(LINES - 3, 0, "                      \
+                                                        ");
+            attrset(COLOR_PAIR(5));
+            mvprintw(LINES - 2, 0,
+                  "Press <S> for changing sleep setup, <C> for CPU ban setup.");
+            refresh();
+            move(LINES - 1, COLS - 1);
+            break;
+        case 's':
+            all_cpus = tmp;
+            // TODO
+            // scan all_cpus, get new ban values, parse into mask and
+            // save into file
+            break;
+        case 'q':
+            processing = 0;
+            close_window(0);
+            break;
+        case KEY_F(3):
+            processing = 0;
+            display_tree();
+            break;
+        case KEY_F(5):
+            processing = 0;
+            setup_irqs();
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 void settings()
 {
     clear();
@@ -136,7 +277,7 @@ void settings()
     snprintf(info + strlen(info), 128 - strlen(info), "%lu\n", setup.sleep);
     attrset(COLOR_PAIR(1));
     addstr(info);
-    // FIXME addstr info for all cpus if banned or not
+    print_all_cpus();
 
     int user_input = 1;
     while(user_input) {
@@ -147,11 +288,10 @@ void settings()
         show_footer();
         refresh();
         int c = getch();
-        snprintf(info, 128, "Press ESC for discarding your input.\
-                                                                  ");
-        mvaddstr(LINES - 1, 0, info);
         switch(c) {
         case 's': {
+            snprintf(info, 128, "Press ESC for discarding your input.");
+            mvaddstr(LINES - 1, 0, info);
             attrset(COLOR_PAIR(0));
             mvaddstr(LINES - 2, 0, "                      \
                                                         ");
@@ -165,8 +305,8 @@ void settings()
             break;
         }
         case 'c':
-            //setup ban, write to file, send
-
+            handle_banning();
+            send_settings("settings cpus\0");
             break;
         /* We need to include window changing options as well because the
          * related char was eaten up by getch() already */
