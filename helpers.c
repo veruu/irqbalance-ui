@@ -27,14 +27,16 @@ gint sort_all_cpus(gconstpointer First, gconstpointer Second)
 }
 
 char * hex_to_bitmap(char hex_digit) {
-    uint8_t digit;
+    uint8_t digit = 0;;
     if((hex_digit >= '0') && (hex_digit <= '9')) {
         digit = hex_digit - '0';
     } else if((hex_digit >= 'a') && (hex_digit <= 'f')) {
         digit = hex_digit - 'a' + 10;
     } else if((hex_digit >= 'A') && (hex_digit <= 'F')) {
         digit = hex_digit - 'A' + 10;
-    } else return "0000\0";
+    } else {
+        return "0000\0";
+    }
 
     char *bitmap = malloc(5 * sizeof(char));
     bitmap[4] = '\0';

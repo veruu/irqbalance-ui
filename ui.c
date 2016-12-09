@@ -255,6 +255,7 @@ void handle_banning()
             refresh();
             break;
         case 's':
+            processing = 0;
             all_cpus = tmp;
             curs_set(0);
             print_all_cpus();
@@ -269,8 +270,11 @@ void handle_banning()
             refresh();
             char settings_string[1024] = "settings cpus \0";
             for_each_cpu(all_cpus, get_new_ban_values, settings_string);
+            if(!strcmp("settings cpus \0", settings_string)) {
+                strncpy(settings_string + strlen(settings_string),
+                        "NULL", 1024 - strlen(settings_string));
+            }
             send_settings(settings_string);
-            processing = 0;
             break;
         case 'q':
             processing = 0;
@@ -293,6 +297,8 @@ void handle_banning()
 void settings()
 {
     clear();
+    char *setup_data = get_data(SETUP);
+    parse_setup(setup_data);
 
     char info[128] = "Current sleep interval between rebalancing: \0";
     uint8_t sleep_input_offset = strlen(info);
@@ -304,7 +310,7 @@ void settings()
     int user_input = 1;
     while(user_input) {
         snprintf(info, 128,
-                 "Press <S> for changing sleep setup, <C> for CPU ban setup.");
+                "Press <S> for changing sleep setup, <C> for CPU ban setup.  ");
         attrset(COLOR_PAIR(5));
         mvaddstr(LINES - 2, 0, info);
         show_footer();
@@ -408,15 +414,36 @@ void display_tree_node(cpu_node_t *node, void *data __attribute__((unused)))
 void display_tree()
 {
     clear();
-    tree = NULL;
     char *setup_data = get_data(SETUP);
     parse_setup(setup_data);
-    char * irqbalance_data = get_data(STATS);
+    char *irqbalance_data = get_data(STATS);
     parse_into_tree(irqbalance_data);
     display_banned_cpus();
     for_each_node(tree, display_tree_node, NULL);
     show_footer();
     refresh();
+    int processing = 1;
+    while(processing) {
+        int choice = getch();
+        mvprintw(0,0, "%d",choice);
+        refresh();
+	    switch(choice) {
+            case 'q':
+                processing = 0;
+                close_window(0);
+                break;
+            case KEY_F(4):
+                processing = 0;
+                settings();
+                break;
+            case KEY_F(5):
+                processing = 0;
+                setup_irqs();
+                break;
+            default:
+                break;
+        }
+    }
 }
 
 void init()

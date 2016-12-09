@@ -15,9 +15,6 @@
 #include "ui.h"
 #include "helpers.h"
 
-/* FIXME */
-//char *setup_data = "SLEEP 10 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186 BANNED 00000001\0";
-//char *irqbalance_data = "TYPE 3 NUMBER -1 LOAD 0 SAVE_MODE 0 TYPE 2 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 48 LOAD 0 DIFF 0 IRQ 47 LOAD 0 DIFF 0 IRQ 41 LOAD 0 DIFF 0 IRQ 40 LOAD 0 DIFF 0 IRQ 12 LOAD 0 DIFF 882 IRQ 9 LOAD 0 DIFF 0 IRQ 8 LOAD 0 DIFF 0 IRQ 1 LOAD 0 DIFF 52 IRQ 0 LOAD 0 DIFF 0 IRQ 45 LOAD 0 DIFF 0 TYPE 1 NUMBER 0 LOAD 0 SAVE_MODE 0 IRQ 17 LOAD 0 DIFF 0 IRQ 18 LOAD 0 DIFF 0 TYPE 0 NUMBER 3 LOAD 0 SAVE_MODE 0 IRQ 50 LOAD 0 DIFF 47 TYPE 0 NUMBER 2 LOAD 0 SAVE_MODE 0 IRQ 46 LOAD 0 DIFF 311 TYPE 1 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 43 LOAD 0 DIFF 0 IRQ 23 LOAD 0 DIFF 0 TYPE 0 NUMBER 1 LOAD 0 SAVE_MODE 0 IRQ 49 LOAD 0 DIFF 5 IRQ 42 LOAD 0 DIFF 186\0";
 /* FIXME logging instead of printf */
 
 GList *tree = NULL;
@@ -74,15 +71,18 @@ char * get_data(char *string)
     int len = recv(socket_fd, data, 2048, 0);
     close(socket_fd);
     data[len] = '\0';
+    refresh();
     return data;
 }
 
 void parse_into_tree(char *data)
 {
+    if(data == NULL) return;
     char *token, *ptr;
     cpu_node_t *parent = NULL;
     char copy[strlen(data) + 1];
     strncpy(copy, data, strlen(data) + 1);
+    tree = NULL;
 
     token = strtok_r(copy, " ", &ptr);
     while(token != NULL) {
@@ -145,6 +145,7 @@ out:
 void parse_setup(char *setup_data)
 {
     char *token, *ptr;
+    if(setup_data == NULL) return;
     char copy[strlen(setup_data) + 1];
     strncpy(copy, setup_data, strlen(setup_data) + 1);
     setup.banned_irqs = NULL;
@@ -169,9 +170,11 @@ void parse_setup(char *setup_data)
 
     if(strncmp(token, "BANNED", strlen("BANNED"))) goto out;
     token = strtok_r(ptr, " ", &ptr);
+    refresh();
     for(int i = strlen(token) - 1; i >= 0; i--) {
         char *map = hex_to_bitmap(token[i]);
-        for(int j = 4; j >= 0; j--) {
+        refresh();
+        for(int j = 3; j >= 0; j--) {
             if(map[j] == '1') {
                 uint64_t *banned_cpu = malloc(sizeof(uint64_t));
                 *banned_cpu = (4 * (strlen(token) - (i + 1)) + (4 - (j + 1)));
