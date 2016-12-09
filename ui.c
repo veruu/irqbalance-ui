@@ -147,6 +147,15 @@ void get_banned_cpu(uint64_t *cpu, void *data __attribute__((unused)))
     all_cpus = g_list_append(all_cpus, new);
 }
 
+void get_new_ban_values(cpu_ban_t *cpu, void *data)
+{
+    char *mask_data = (char *)data;
+    if(cpu->is_banned) {
+        snprintf(mask_data + strlen(mask_data), 1024 - strlen(mask_data),
+                 "%lu,", cpu->number);
+    }
+}
+
 void print_cpu_line(cpu_ban_t *cpu, void *data)
 {
     int *line_offset = data;
@@ -231,6 +240,7 @@ void handle_banning()
             break;
         }
         case 27:
+            processing = 0;
             curs_set(0);
             /* Forget the changes */
             tmp = g_list_copy_deep(all_cpus, copy_cpu_ban, NULL);
@@ -240,15 +250,27 @@ void handle_banning()
                                                         ");
             attrset(COLOR_PAIR(5));
             mvprintw(LINES - 2, 0,
-                  "Press <S> for changing sleep setup, <C> for CPU ban setup.");
-            refresh();
+                "Press <S> for changing sleep setup, <C> for CPU ban setup.  ");
             move(LINES - 1, COLS - 1);
+            refresh();
             break;
         case 's':
             all_cpus = tmp;
-            // TODO
-            // scan all_cpus, get new ban values, parse into mask and
-            // save into file
+            curs_set(0);
+            print_all_cpus();
+            attrset(COLOR_PAIR(0));
+            mvprintw(LINES - 3, 0, "                      \
+                                                        ");
+            attrset(COLOR_PAIR(5));
+            mvprintw(LINES - 2, 0,
+                "Press <S> for changing sleep setup, <C> for CPU ban setup.  ");
+            attrset(COLOR_PAIR(3));
+            move(LINES - 1, COLS - 1);
+            refresh();
+            char settings_string[1024] = "settings cpus \0";
+            for_each_cpu(all_cpus, get_new_ban_values, settings_string);
+            send_settings(settings_string);
+            processing = 0;
             break;
         case 'q':
             processing = 0;
@@ -306,7 +328,6 @@ void settings()
         }
         case 'c':
             handle_banning();
-            send_settings("settings cpus\0");
             break;
         /* We need to include window changing options as well because the
          * related char was eaten up by getch() already */
@@ -387,6 +408,11 @@ void display_tree_node(cpu_node_t *node, void *data __attribute__((unused)))
 void display_tree()
 {
     clear();
+    tree = NULL;
+    char *setup_data = get_data(SETUP);
+    parse_setup(setup_data);
+    char * irqbalance_data = get_data(STATS);
+    parse_into_tree(irqbalance_data);
     display_banned_cpus();
     for_each_node(tree, display_tree_node, NULL);
     show_footer();

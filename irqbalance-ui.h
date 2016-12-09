@@ -60,6 +60,7 @@ typedef struct setup {
 int init_connection();
 int send_settings(char *data);
 char * get_data(char *string);
+void parse_setup(char *setup_data);
 void parse_into_tree(char *data);
 int main();
 

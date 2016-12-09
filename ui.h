@@ -23,6 +23,7 @@ char * check_control_in_sleep_input(int max_len,
                                     int line_offset);
 int get_valid_sleep_input(int column_offest);
 int toggle_cpu(GList *cpu_list, int cpu_number);
+void get_new_ban_values(cpu_ban_t *cpu, void *data);
 void handle_banning();
 void init();
 void get_cpu();
