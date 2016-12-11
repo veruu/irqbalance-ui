@@ -6,13 +6,14 @@
 
 extern GList *tree;
 
-/* helper functions */
+
+/* Helper functions */
 
 gint sort_all_cpus(gconstpointer First, gconstpointer Second);
 gint sort_all_irqs(gconstpointer First, gconstpointer Second);
 char * hex_to_bitmap(char hex_digit);
-gpointer copy_cpu_ban (gconstpointer src, gpointer data);
-gpointer copy_irq (gconstpointer src, gpointer data);
+gpointer copy_cpu_ban(gconstpointer src, gpointer data);
+gpointer copy_irq(gconstpointer src, gpointer data);
 void for_each_cpu(GList *list, void (*fp)(cpu_ban_t *cpu, void *data),
                   void *data);
 void for_each_banned_cpu(GList *list, void (*fp)(uint64_t *number, void *data),
@@ -21,7 +22,8 @@ void for_each_irq(GList *list, void (*fp)(irq_t *irq, void *data), void *data);
 void for_each_node(GList *list,
                    void (*fp)(cpu_node_t *node, void *data), void *data);
 
-/* programmer debugging functions */
+
+/* Programmer debugging functions */
 
 void dump_irq(irq_t *irq, void *data __attribute__((unused)));
 void dump_node(cpu_node_t *node, void *data __attribute__((unused)));

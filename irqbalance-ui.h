@@ -14,13 +14,7 @@
 #define BAN_IRQS "settings ban irqs "
 #define SETUP "setup"
 
-
-/*extern void init();
-extern void display_tree();
-extern void display_matrix();
-extern void close_window(int sig);
-*/
-/* typedefs */
+/* Typedefs */
 
 typedef enum node_type {
     OBJ_TYPE_CPU,
@@ -57,6 +51,7 @@ typedef struct setup {
     GList *banned_cpus;
 } setup_t;
 
+/* Function prototypes */
 
 int init_connection();
 int send_settings(char *data);

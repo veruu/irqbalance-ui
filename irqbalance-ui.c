@@ -7,15 +7,12 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
-
 #include <curses.h>
 #include <ncurses.h>
-
 #include "irqbalance-ui.h"
 #include "ui.h"
 #include "helpers.h"
 
-/* FIXME logging instead of printf */
 
 GList *tree = NULL;
 setup_t setup;
@@ -44,7 +41,7 @@ int init_connection()
 
 int send_settings(char *data)
 {
-    /* send "settings sleep X" to set sleep interval, "settings ban irqs X Y..."
+    /* Send "settings sleep X" to set sleep interval, "settings ban irqs X Y..."
      * to ban IRQs from balancing, "settings cpus <banned_list>" to setup which
      * CPUs are forbidden to handle IRQs
      */
@@ -60,7 +57,7 @@ int send_settings(char *data)
 
 char * get_data(char *string)
 {
-    /* send "setup" to get sleep interval, banned IRQs and banned CPUs,
+    /* Send "setup" to get sleep interval, banned IRQs and banned CPUs,
      * "stats" to get CPU tree statistics
      */
     int socket_fd = init_connection();
@@ -74,6 +71,58 @@ char * get_data(char *string)
     data[len] = '\0';
     refresh();
     return data;
+}
+
+void parse_setup(char *setup_data)
+{
+    char *token, *ptr;
+    if(setup_data == NULL) return;
+    char copy[strlen(setup_data) + 1];
+    strncpy(copy, setup_data, strlen(setup_data) + 1);
+    setup.banned_irqs = NULL;
+    setup.banned_cpus = NULL;
+    token = strtok_r(copy, " ", &ptr);
+    if(strncmp(token, "SLEEP", strlen("SLEEP"))) goto out;
+    setup.sleep = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+    token = strtok_r(ptr, " ", &ptr);
+    /* Parse banned IRQ data */
+    while(!strncmp(token, "IRQ", strlen("IRQ"))) {
+        irq_t *new_irq = malloc(sizeof(irq_t));
+        new_irq->vector = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "LOAD", strlen("LOAD"))) goto out;
+        new_irq->load = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
+        if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
+        new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        new_irq->is_banned = 1;
+        setup.banned_irqs = g_list_append(setup.banned_irqs, new_irq);
+        token = strtok_r(ptr, " ", &ptr);
+    }
+
+    if(strncmp(token, "BANNED", strlen("BANNED"))) goto out;
+    token = strtok_r(ptr, " ", &ptr);
+    for(int i = strlen(token) - 1; i >= 0; i--) {
+        char *map = hex_to_bitmap(token[i]);
+        for(int j = 3; j >= 0; j--) {
+            if(map[j] == '1') {
+                uint64_t *banned_cpu = malloc(sizeof(uint64_t));
+                *banned_cpu = (4 * (strlen(token) - (i + 1)) + (4 - (j + 1)));
+                setup.banned_cpus = g_list_append(setup.banned_cpus,
+                                                  banned_cpu);
+            }
+        }
+    }
+    return;
+
+out: {
+    /* Invalid data presented */
+    char invalid_data[128];
+    snprintf(invalid_data, 128, "Invalid data sent. Unexpected token: %s\n",
+             token);
+    perror(invalid_data);
+    g_list_free(tree);
+}
 }
 
 void parse_into_tree(char *data)
@@ -138,57 +187,14 @@ void parse_into_tree(char *data)
     }
     return;
 
-out:
+out: {
     /* Invalid data presented */
-    printf("Invalid data sent. Unexpected token: %s\n", token);
+    char invalid_data[128];
+    snprintf(invalid_data, 128, "Invalid data sent. Unexpected token: %s\n",
+             token);
+    perror(invalid_data);
     g_list_free(tree);
 }
-
-void parse_setup(char *setup_data)
-{
-    char *token, *ptr;
-    if(setup_data == NULL) return;
-    char copy[strlen(setup_data) + 1];
-    strncpy(copy, setup_data, strlen(setup_data) + 1);
-    setup.banned_irqs = NULL;
-    setup.banned_cpus = NULL;
-    token = strtok_r(copy, " ", &ptr);
-    if(strncmp(token, "SLEEP", strlen("SLEEP"))) goto out;
-    setup.sleep = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
-    token = strtok_r(ptr, " ", &ptr);
-    /* Parse banned IRQ data */
-    while(!strncmp(token, "IRQ", strlen("IRQ"))) {
-        irq_t *new_irq = malloc(sizeof(irq_t));
-        new_irq->vector = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
-        token = strtok_r(ptr, " ", &ptr);
-        if(strncmp(token, "LOAD", strlen("LOAD"))) goto out;
-        new_irq->load = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
-        token = strtok_r(ptr, " ", &ptr);
-        if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
-        new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
-        new_irq->is_banned = 1;
-        setup.banned_irqs = g_list_append(setup.banned_irqs, new_irq);
-        token = strtok_r(ptr, " ", &ptr);
-    }
-
-    if(strncmp(token, "BANNED", strlen("BANNED"))) goto out;
-    token = strtok_r(ptr, " ", &ptr);
-    for(int i = strlen(token) - 1; i >= 0; i--) {
-        char *map = hex_to_bitmap(token[i]);
-        for(int j = 3; j >= 0; j--) {
-            if(map[j] == '1') {
-                uint64_t *banned_cpu = malloc(sizeof(uint64_t));
-                *banned_cpu = (4 * (strlen(token) - (i + 1)) + (4 - (j + 1)));
-                setup.banned_cpus = g_list_append(setup.banned_cpus,
-                                                  banned_cpu);
-            }
-        }
-    }
-    return;
-
-out:
-    /* Invalid data presented */
-    printf("Invalid data sent. Unexpected token: %s\n", token);
 }
 
 int main()

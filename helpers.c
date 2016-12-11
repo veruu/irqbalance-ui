@@ -66,22 +66,22 @@ char * hex_to_bitmap(char hex_digit) {
     return bitmap;
 }
 
-gpointer copy_irq (gconstpointer src, gpointer data)
+gpointer copy_cpu_ban(gconstpointer src, gpointer data)
+{
+    cpu_ban_t *old = (cpu_ban_t *)src; 
+    cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
+    new->number = old->number;
+    new->is_banned = old->is_banned;
+    return new;
+}
+
+gpointer copy_irq(gconstpointer src, gpointer data)
 {
     irq_t *old = (irq_t *)src; 
     irq_t *new = malloc(sizeof(irq_t));
     new->vector = old->vector;
     new->load = old->load;
     new->diff = old->diff;
-    new->is_banned = old->is_banned;
-    return new;
-}
-
-gpointer copy_cpu_ban (gconstpointer src, gpointer data)
-{
-    cpu_ban_t *old = (cpu_ban_t *)src; 
-    cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
-    new->number = old->number;
     new->is_banned = old->is_banned;
     return new;
 }
@@ -130,7 +130,7 @@ void for_each_node(GList *list,
     }
 }
 
-/* programmer debugging functions */
+/* Programmer debugging functions */
 
 void dump_irq(irq_t *irq, void *data __attribute__((unused)))
 {

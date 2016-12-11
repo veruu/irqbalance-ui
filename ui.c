@@ -2,19 +2,9 @@
 #include <string.h>
 #include "ui.h"
 
-const char *node_type_to_str[] = {"CPU\0",
-                                  "CACHE DOMAIN\0",
-                                  "CPU PACKAGE\0",
-                                  "NUMA NODE\0"};
 
 GList *all_cpus = NULL;
 GList *all_irqs = NULL;
-
-void close_window(int sig)
-{
-    endwin();
-    exit(EXIT_SUCCESS);
-}
 
 void show_footer()
 {
@@ -26,26 +16,6 @@ void show_footer()
     }
     attrset(COLOR_PAIR(4));
     mvaddstr(LINES - 1, 0, footer);
-}
-
-void add_banned_cpu(uint64_t *banned_cpu, void *data)
-{
-    snprintf(data + strlen(data), 1024 - strlen(data), "%lu, ", *banned_cpu);
-}
-
-void display_banned_cpus()
-{
-    char banned_cpus[1024] = "Banned CPU numbers: \0";
-    if(g_list_length(setup.banned_cpus) > 0) {
-        for_each_banned_cpu(setup.banned_cpus, add_banned_cpu, banned_cpus);
-        snprintf(banned_cpus + strlen(banned_cpus) - 2,
-                 1024 - strlen(banned_cpus), "\n");
-    } else {
-        snprintf(banned_cpus + strlen(banned_cpus),
-                 1024 - strlen(banned_cpus), "None\n");
-    }
-    attrset(COLOR_PAIR(1));
-    addstr(banned_cpus);
 }
 
 char * check_control_in_sleep_input(int max_len, int column_offest, int line_offset)
@@ -127,19 +97,6 @@ int get_valid_sleep_input(int column_offest)
     return new_sleep;
 }
 
-void get_cpu(cpu_node_t *node, void *data __attribute__((unused)))
-{
-    if(node->type == OBJ_TYPE_CPU) {
-        cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
-        new->number = node->number;
-        new->is_banned = 0;
-        all_cpus = g_list_append(all_cpus, new);
-    }
-    if(g_list_length(node->children) > 0) {
-        for_each_node(node->children, get_cpu, NULL);
-    }
-}
-
 void get_banned_cpu(uint64_t *cpu, void *data __attribute__((unused)))
 {
     cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
@@ -148,22 +105,12 @@ void get_banned_cpu(uint64_t *cpu, void *data __attribute__((unused)))
     all_cpus = g_list_append(all_cpus, new);
 }
 
-void get_new_cpu_ban_values(cpu_ban_t *cpu, void *data)
-{
-    char *mask_data = (char *)data;
-    if(cpu->is_banned) {
-        snprintf(mask_data + strlen(mask_data), 1024 - strlen(mask_data),
-                 "%lu,", cpu->number);
-    }
-}
-
 void print_cpu_line(cpu_ban_t *cpu, void *data)
 {
     int *line_offset = data;
     mvprintw(*line_offset, 0, "CPU %lu", cpu->number);
     mvprintw(*line_offset, 20, "%s", cpu->is_banned ? "YES" : "NO ");
     (*line_offset)++;
-
 }
 
 void print_all_cpus()
@@ -181,32 +128,24 @@ void print_all_cpus()
     for_each_cpu(all_cpus, print_cpu_line, line);
 }
 
-void print_irq_line(irq_t *irq, void *data)
+void add_banned_cpu(uint64_t *banned_cpu, void *data)
 {
-    int *line_offset = data;
-    mvprintw(*line_offset, 0, "IRQ %lu", irq->vector);
-    mvprintw(*line_offset, 20, "%s", irq->is_banned ? "YES" : "NO ");
-    (*line_offset)++;
-
+    snprintf(data + strlen(data), 1024 - strlen(data), "%lu, ", *banned_cpu);
 }
 
-void print_all_irqs()
+void display_banned_cpus()
 {
-    int *line = malloc(sizeof(int));
-    *line = 1;
-    attrset(COLOR_PAIR(2));
-    mvprintw(0, 0, "NUMBER              IS BANNED");
-    attrset(COLOR_PAIR(3));
-    for_each_irq(all_irqs, print_irq_line, line);
-}
-
-void get_new_irq_ban_values(irq_t *irq, void *data)
-{
-    char *ban_list = (char *)data;
-    if(irq->is_banned) {
-        snprintf(ban_list + strlen(ban_list), 1024 - strlen(ban_list),
-                 " %lu", irq->vector);
+    char banned_cpus[1024] = "Banned CPU numbers: \0";
+    if(g_list_length(setup.banned_cpus) > 0) {
+        for_each_banned_cpu(setup.banned_cpus, add_banned_cpu, banned_cpus);
+        snprintf(banned_cpus + strlen(banned_cpus) - 2,
+                 1024 - strlen(banned_cpus), "\n");
+    } else {
+        snprintf(banned_cpus + strlen(banned_cpus),
+                 1024 - strlen(banned_cpus), "None\n");
     }
+    attrset(COLOR_PAIR(1));
+    addstr(banned_cpus);
 }
 
 int toggle_cpu(GList *cpu_list, int cpu_number)
@@ -223,6 +162,28 @@ int toggle_cpu(GList *cpu_list, int cpu_number)
         ((cpu_ban_t *)(entry->data))->is_banned = 1;
     }
     return ((cpu_ban_t *)(entry->data))->is_banned;
+}
+
+void get_new_cpu_ban_values(cpu_ban_t *cpu, void *data)
+{
+    char *mask_data = (char *)data;
+    if(cpu->is_banned) {
+        snprintf(mask_data + strlen(mask_data), 1024 - strlen(mask_data),
+                 "%lu,", cpu->number);
+    }
+}
+
+void get_cpu(cpu_node_t *node, void *data __attribute__((unused)))
+{
+    if(node->type == OBJ_TYPE_CPU) {
+        cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
+        new->number = node->number;
+        new->is_banned = 0;
+        all_cpus = g_list_append(all_cpus, new);
+    }
+    if(g_list_length(node->children) > 0) {
+        for_each_node(node->children, get_cpu, NULL);
+    }
 }
 
 void handle_cpu_banning()
@@ -322,65 +283,23 @@ void handle_cpu_banning()
     }
 }
 
-void settings()
+void print_irq_line(irq_t *irq, void *data)
 {
-    clear();
-    char *setup_data = get_data(SETUP);
-    parse_setup(setup_data);
+    int *line_offset = data;
+    mvprintw(*line_offset, 0, "IRQ %lu", irq->vector);
+    mvprintw(*line_offset, 20, "%s", irq->is_banned ? "YES" : "NO ");
+    (*line_offset)++;
 
-    char info[128] = "Current sleep interval between rebalancing: \0";
-    uint8_t sleep_input_offset = strlen(info);
-    snprintf(info + strlen(info), 128 - strlen(info), "%lu\n", setup.sleep);
-    attrset(COLOR_PAIR(1));
-    addstr(info);
-    print_all_cpus();
+}
 
-    int user_input = 1;
-    while(user_input) {
-        snprintf(info, 128,
-                "Press <S> for changing sleep setup, <C> for CPU ban setup.  ");
-        attrset(COLOR_PAIR(5));
-        mvaddstr(LINES - 2, 0, info);
-        show_footer();
-        refresh();
-        int c = getch();
-        switch(c) {
-        case 's': {
-            snprintf(info, 128, "Press ESC for discarding your input.");
-            mvaddstr(LINES - 1, 0, info);
-            attrset(COLOR_PAIR(0));
-            mvaddstr(LINES - 2, 0, "                      \
-                                                        ");
-            uint64_t new_sleep = get_valid_sleep_input(sleep_input_offset);
-            if(new_sleep != setup.sleep) {
-                setup.sleep = new_sleep;
-                char settings_data[128];
-                snprintf(settings_data, 128, "settings sleep %lu", new_sleep);
-                send_settings(settings_data);
-            }
-            break;
-        }
-        case 'c':
-            handle_cpu_banning();
-            break;
-        /* We need to include window changing options as well because the
-         * related char was eaten up by getch() already */
-        case 'q':
-            user_input = 0;
-            close_window(0);
-            break;
-        case KEY_F(3):
-            user_input = 0;
-            display_tree();
-            break;
-        case KEY_F(5):
-            user_input = 0;
-            setup_irqs();
-            break;
-        default:
-            break;
-        }
-    }
+void print_all_irqs()
+{
+    int *line = malloc(sizeof(int));
+    *line = 1;
+    attrset(COLOR_PAIR(2));
+    mvprintw(0, 0, "NUMBER              IS BANNED");
+    attrset(COLOR_PAIR(3));
+    for_each_irq(all_irqs, print_irq_line, line);
 }
 
 int toggle_irq(GList *irq_list, int position)
@@ -397,6 +316,32 @@ int toggle_irq(GList *irq_list, int position)
         ((irq_t *)(entry->data))->is_banned = 1;
     }
     return ((irq_t *)(entry->data))->is_banned;
+}
+
+void get_new_irq_ban_values(irq_t *irq, void *data)
+{
+    char *ban_list = (char *)data;
+    if(irq->is_banned) {
+        snprintf(ban_list + strlen(ban_list), 1024 - strlen(ban_list),
+                 " %lu", irq->vector);
+    }
+}
+
+void copy_irqs_from_nodes(cpu_node_t *node, void *data __attribute__((unused)))
+{
+    if(g_list_length(node->irqs) > 0) {
+        GList *new = g_list_copy_deep(node->irqs, copy_irq, NULL);
+        all_irqs = g_list_concat(all_irqs, new);
+    }
+    if(g_list_length(node->children) > 0) {
+        for_each_node(node->children, copy_irqs_from_nodes, all_irqs);
+    }                                                                           
+}
+
+void get_all_irqs()
+{
+    all_irqs = g_list_copy_deep(setup.banned_irqs, copy_irq, NULL);
+    for_each_node(tree, copy_irqs_from_nodes, NULL);
 }
 
 void handle_irq_banning()
@@ -496,21 +441,94 @@ void handle_irq_banning()
     }
 }
 
-void copy_irqs_from_nodes(cpu_node_t *node, void *data __attribute__((unused)))
+void init()
 {
-    if(g_list_length(node->irqs) > 0) {
-        GList *new = g_list_copy_deep(node->irqs, copy_irq, NULL);
-        all_irqs = g_list_concat(all_irqs, new);
+    signal(SIGINT, close_window);
+    initscr();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    nonl();
+    cbreak();
+    echo();
+    if(has_colors()) {
+        start_color();
+        init_pair(1, COLOR_RED, COLOR_BLACK);
+        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+        init_pair(3, COLOR_GREEN, COLOR_BLACK);
+        init_pair(4, COLOR_WHITE, COLOR_BLUE);
+        init_pair(5, COLOR_WHITE, COLOR_RED);
+        init_pair(6, COLOR_RED, COLOR_WHITE);
+        init_pair(7, COLOR_BLACK, COLOR_CYAN);
     }
-    if(g_list_length(node->children) > 0) {
-        for_each_node(node->children, copy_irqs_from_nodes, all_irqs);
-    }                                                                           
+
+    display_tree();
 }
 
-void get_all_irqs()
+void close_window(int sig)
 {
-    all_irqs = g_list_copy_deep(setup.banned_irqs, copy_irq, NULL);
-    for_each_node(tree, copy_irqs_from_nodes, NULL);
+    endwin();
+    exit(EXIT_SUCCESS);
+}
+
+void settings()
+{
+    clear();
+    char *setup_data = get_data(SETUP);
+    parse_setup(setup_data);
+
+    char info[128] = "Current sleep interval between rebalancing: \0";
+    uint8_t sleep_input_offset = strlen(info);
+    snprintf(info + strlen(info), 128 - strlen(info), "%lu\n", setup.sleep);
+    attrset(COLOR_PAIR(1));
+    addstr(info);
+    print_all_cpus();
+
+    int user_input = 1;
+    while(user_input) {
+        snprintf(info, 128,
+                "Press <S> for changing sleep setup, <C> for CPU ban setup.  ");
+        attrset(COLOR_PAIR(5));
+        mvaddstr(LINES - 2, 0, info);
+        show_footer();
+        refresh();
+        int c = getch();
+        switch(c) {
+        case 's': {
+            snprintf(info, 128, "Press ESC for discarding your input.");
+            mvaddstr(LINES - 1, 0, info);
+            attrset(COLOR_PAIR(0));
+            mvaddstr(LINES - 2, 0, "                      \
+                                                        ");
+            uint64_t new_sleep = get_valid_sleep_input(sleep_input_offset);
+            if(new_sleep != setup.sleep) {
+                setup.sleep = new_sleep;
+                char settings_data[128];
+                snprintf(settings_data, 128, "settings sleep %lu", new_sleep);
+                send_settings(settings_data);
+            }
+            break;
+        }
+        case 'c':
+            handle_cpu_banning();
+            break;
+        /* We need to include window changing options as well because the
+         * related char was eaten up by getch() already */
+        case 'q':
+            user_input = 0;
+            close_window(0);
+            break;
+        case KEY_F(3):
+            user_input = 0;
+            display_tree();
+            break;
+        case KEY_F(5):
+            user_input = 0;
+            setup_irqs();
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 void setup_irqs()
@@ -626,27 +644,4 @@ void display_tree()
                 break;
         }
     }
-}
-
-void init()
-{
-    signal(SIGINT, close_window);
-    initscr();
-    keypad(stdscr, TRUE);
-    curs_set(0);
-    nonl();
-    cbreak();
-    echo();
-    if(has_colors()) {
-        start_color();
-        init_pair(1, COLOR_RED, COLOR_BLACK);
-        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
-        init_pair(3, COLOR_GREEN, COLOR_BLACK);
-        init_pair(4, COLOR_WHITE, COLOR_BLUE);
-        init_pair(5, COLOR_WHITE, COLOR_RED);
-        init_pair(6, COLOR_RED, COLOR_WHITE);
-        init_pair(7, COLOR_BLACK, COLOR_CYAN);
-    }
-
-    display_tree();
 }
