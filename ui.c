@@ -15,7 +15,7 @@ void show_footer()
         snprintf(footer + strlen(footer), COLS - strlen(footer), " ");
     }
     attrset(COLOR_PAIR(4));
-    mvaddstr(LINES - 1, 0, footer);
+    mvprintw(LINES - 1, 0, footer);
 }
 
 char * check_control_in_sleep_input(int max_len, int column_offest, int line_offset)
@@ -57,7 +57,7 @@ int get_valid_sleep_input(int column_offest)
     uint64_t new_sleep = setup.sleep;
     while(1) {
         attrset(COLOR_PAIR(5));
-        mvaddstr(0, column_offest, "                 ");
+        mvprintw(0, column_offest, "                 ");
         attrset(COLOR_PAIR(6));
         refresh();
         move(0, column_offest);
@@ -66,13 +66,12 @@ int get_valid_sleep_input(int column_offest)
         if(input == NULL) {
             curs_set(0);
             attrset(COLOR_PAIR(1));
-            mvaddstr(0, column_offest, "                 ");
-            mvprintw(0, column_offest, "%lu", new_sleep);
+            mvprintw(0, column_offest, "%lu                 ", new_sleep);
             move(LINES, COLS);
             break;
         }
         attrset(COLOR_PAIR(1));
-        mvaddstr(LINES - 2, 0, "                                         ");
+        mvprintw(LINES - 2, 0, "                                         ");
         curs_set(0);
         refresh();
         char *error;
@@ -81,12 +80,10 @@ int get_valid_sleep_input(int column_offest)
             break;
         } else {
             new_sleep = setup.sleep;
-            char message[128];
-            snprintf(message, 128,
+            attrset(COLOR_PAIR(4));
+            mvprintw(LINES - 2, 0,
                      "Invalid input: %s                                       ",
                      input);
-            attrset(COLOR_PAIR(4));
-            mvaddstr(LINES - 2, 0, message);
             refresh();
         }
     }
@@ -145,7 +142,7 @@ void display_banned_cpus()
                  1024 - strlen(banned_cpus), "None\n");
     }
     attrset(COLOR_PAIR(1));
-    addstr(banned_cpus);
+    mvprintw(0, 0, banned_cpus);
 }
 
 int toggle_cpu(GList *cpu_list, int cpu_number)
@@ -189,12 +186,10 @@ void get_cpu(cpu_node_t *node, void *data __attribute__((unused)))
 void handle_cpu_banning()
 {
     GList *tmp = g_list_copy_deep(all_cpus, copy_cpu_ban, NULL);
-    char info[128];
     attrset(COLOR_PAIR(5));
-    snprintf(info, 128, "%s\n%s",
+    mvprintw(LINES - 3, 0, "%s\n%s",
              "Move up and down the list, toggle ban with Enter.",
              "Press ESC for discarding and <S> for saving the values.");
-    mvaddstr(LINES - 3, 0, info);
     move(3, 20);
     curs_set(1);
     refresh();
@@ -347,12 +342,10 @@ void get_all_irqs()
 void handle_irq_banning()
 {
     GList *tmp = g_list_copy_deep(all_irqs, copy_irq, NULL);
-    char info[128];
     attrset(COLOR_PAIR(5));
-    snprintf(info, 128, "%s\n%s",
+    mvprintw(LINES - 3, 0, "%s\n%s",
              "Move up and down the list, toggle ban with Enter.",
              "Press ESC for discarding and <S> for saving the values.");
-    mvaddstr(LINES - 3, 0, info);
     move(1, 20);
     curs_set(1);
     refresh();
@@ -480,24 +473,22 @@ void settings()
     uint8_t sleep_input_offset = strlen(info);
     snprintf(info + strlen(info), 128 - strlen(info), "%lu\n", setup.sleep);
     attrset(COLOR_PAIR(1));
-    addstr(info);
+    mvprintw(0, 0, info);
     print_all_cpus();
 
     int user_input = 1;
     while(user_input) {
-        snprintf(info, 128,
-                "Press <S> for changing sleep setup, <C> for CPU ban setup.  ");
         attrset(COLOR_PAIR(5));
-        mvaddstr(LINES - 2, 0, info);
+        mvprintw(LINES - 2, 0,
+                 "Press <S> for changing sleep setup, <C> for CPU ban setup. ");
         show_footer();
         refresh();
         int c = getch();
         switch(c) {
         case 's': {
-            snprintf(info, 128, "Press ESC for discarding your input.");
-            mvaddstr(LINES - 1, 0, info);
+            mvprintw(LINES - 1, 0, "Press ESC for discarding your input.");
             attrset(COLOR_PAIR(0));
-            mvaddstr(LINES - 2, 0, "                      \
+            mvprintw(LINES - 2, 0, "                      \
                                                         ");
             uint64_t new_sleep = get_valid_sleep_input(sleep_input_offset);
             if(new_sleep != setup.sleep) {
@@ -534,14 +525,11 @@ void settings()
 void setup_irqs()
 {
     clear();
-
     get_all_irqs();
     all_irqs = g_list_sort(all_irqs, sort_all_irqs);
     print_all_irqs();
-    char info[512];
-    snprintf(info, 512, "Press <I> for setting up IRQ banning.");
     attrset(COLOR_PAIR(5));
-    mvaddstr(LINES - 2, 0, info);
+    mvprintw(LINES - 2, 0, "Press <I> for setting up IRQ banning.");
     show_footer();
     refresh();
 
@@ -575,14 +563,17 @@ void display_tree_node_irqs(irq_t *irq, void *data)
     char indent[32] = "      \0";
     snprintf(indent + strlen(indent), 32 - strlen(indent), "%s", (char *)data);
     attrset(COLOR_PAIR(3));
-    char copy_to[256];
-    snprintf(copy_to, 256, "%sIRQ %lu, IRQs since last rebalance %lu\n",
+    printw("%sIRQ %lu, IRQs since last rebalance %lu\n",
             indent, irq->vector, irq->diff);
-    addstr(copy_to);
 }
 
 void display_tree_node(cpu_node_t *node, void *data __attribute__((unused)))
 {
+    const char *node_type_to_str[] = {"CPU\0",
+                                  "CACHE DOMAIN\0",
+                                  "CPU PACKAGE\0",
+                                  "NUMA NODE\0"};
+
     char *spaces = "   \0";
     char indent[32] = "\0";
     char *asciitree = "--\0";
@@ -602,7 +593,7 @@ void display_tree_node(cpu_node_t *node, void *data __attribute__((unused)))
     snprintf(copy_to, 1024, "%s%s, number %d%s\n",
             indent, node_type_to_str[node->type], node->number, numa_available);
     attrset(COLOR_PAIR(2));
-    addstr(copy_to);
+    printw(copy_to);
     if(g_list_length(node->irqs) > 0) {
         for_each_irq(node->irqs, display_tree_node_irqs, indent);
     }
@@ -625,8 +616,6 @@ void display_tree()
     int processing = 1;
     while(processing) {
         int choice = getch();
-        mvprintw(0,0, "%d",choice);
-        refresh();
 	    switch(choice) {
             case 'q':
                 processing = 0;

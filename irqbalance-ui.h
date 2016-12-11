@@ -54,7 +54,7 @@ typedef struct setup {
 /* Function prototypes */
 
 int init_connection();
-int send_settings(char *data);
+void send_settings(char *data);
 char * get_data(char *string);
 void parse_setup(char *setup_data);
 void parse_into_tree(char *data);

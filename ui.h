@@ -14,11 +14,6 @@
 extern GList *tree;
 extern setup_t setup;
 
-const char *node_type_to_str[] = {"CPU\0",
-                                  "CACHE DOMAIN\0",
-                                  "CPU PACKAGE\0",
-                                  "NUMA NODE\0"};
-
 
 void show_footer();
 

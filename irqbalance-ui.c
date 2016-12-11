@@ -39,7 +39,7 @@ int init_connection()
     return socket_fd;
 }
 
-int send_settings(char *data)
+void send_settings(char *data)
 {
     /* Send "settings sleep X" to set sleep interval, "settings ban irqs X Y..."
      * to ban IRQs from balancing, "settings cpus <banned_list>" to setup which
@@ -47,12 +47,11 @@ int send_settings(char *data)
      */
     int socket_fd = init_connection();
     if(!socket_fd) {
-        return 1;
+        return;
     }
     send(socket_fd, data, strlen(data), 0);
 
     close(socket_fd);
-    return 0;
 }
 
 char * get_data(char *string)
