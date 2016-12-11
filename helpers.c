@@ -26,8 +26,27 @@ gint sort_all_cpus(gconstpointer First, gconstpointer Second)
     return 1;
 }
 
+gint sort_all_irqs(gconstpointer First, gconstpointer Second)
+{
+    irq_t *first, *second;
+    first = (irq_t *)First;
+    second = (irq_t *)Second;
+
+    if(first->vector < second->vector) {
+        return -1;
+    }
+    if(first->vector == second->vector) {
+        /* This should never happen */
+        return 0;
+    }
+    if(first->vector > second->vector) {
+        return 1;
+    }
+    return 1;
+}
+
 char * hex_to_bitmap(char hex_digit) {
-    uint8_t digit = 0;;
+    uint8_t digit = 0;
     if((hex_digit >= '0') && (hex_digit <= '9')) {
         digit = hex_digit - '0';
     } else if((hex_digit >= 'a') && (hex_digit <= 'f')) {
@@ -45,6 +64,17 @@ char * hex_to_bitmap(char hex_digit) {
         digit /= 2;
     }
     return bitmap;
+}
+
+gpointer copy_irq (gconstpointer src, gpointer data)
+{
+    irq_t *old = (irq_t *)src; 
+    irq_t *new = malloc(sizeof(irq_t));
+    new->vector = old->vector;
+    new->load = old->load;
+    new->diff = old->diff;
+    new->is_banned = old->is_banned;
+    return new;
 }
 
 gpointer copy_cpu_ban (gconstpointer src, gpointer data)
@@ -99,7 +129,6 @@ void for_each_node(GList *list,
         entry = g_list_next(entry);
     }
 }
-
 
 /* programmer debugging functions */
 

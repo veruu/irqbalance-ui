@@ -8,6 +8,7 @@ const char *node_type_to_str[] = {"CPU\0",
                                   "NUMA NODE\0"};
 
 GList *all_cpus = NULL;
+GList *all_irqs = NULL;
 
 void close_window(int sig)
 {
@@ -147,7 +148,7 @@ void get_banned_cpu(uint64_t *cpu, void *data __attribute__((unused)))
     all_cpus = g_list_append(all_cpus, new);
 }
 
-void get_new_ban_values(cpu_ban_t *cpu, void *data)
+void get_new_cpu_ban_values(cpu_ban_t *cpu, void *data)
 {
     char *mask_data = (char *)data;
     if(cpu->is_banned) {
@@ -180,6 +181,34 @@ void print_all_cpus()
     for_each_cpu(all_cpus, print_cpu_line, line);
 }
 
+void print_irq_line(irq_t *irq, void *data)
+{
+    int *line_offset = data;
+    mvprintw(*line_offset, 0, "IRQ %lu", irq->vector);
+    mvprintw(*line_offset, 20, "%s", irq->is_banned ? "YES" : "NO ");
+    (*line_offset)++;
+
+}
+
+void print_all_irqs()
+{
+    int *line = malloc(sizeof(int));
+    *line = 1;
+    attrset(COLOR_PAIR(2));
+    mvprintw(0, 0, "NUMBER              IS BANNED");
+    attrset(COLOR_PAIR(3));
+    for_each_irq(all_irqs, print_irq_line, line);
+}
+
+void get_new_irq_ban_values(irq_t *irq, void *data)
+{
+    char *ban_list = (char *)data;
+    if(irq->is_banned) {
+        snprintf(ban_list + strlen(ban_list), 1024 - strlen(ban_list),
+                 " %lu", irq->vector);
+    }
+}
+
 int toggle_cpu(GList *cpu_list, int cpu_number)
 {
     GList *entry = g_list_first(cpu_list);
@@ -196,14 +225,13 @@ int toggle_cpu(GList *cpu_list, int cpu_number)
     return ((cpu_ban_t *)(entry->data))->is_banned;
 }
 
-void handle_banning()
+void handle_cpu_banning()
 {
     GList *tmp = g_list_copy_deep(all_cpus, copy_cpu_ban, NULL);
-    refresh();
     char info[128];
     attrset(COLOR_PAIR(5));
     snprintf(info, 128, "%s\n%s",
-             "Move up and down at CPU ban list, toggle ban with Enter.",
+             "Move up and down the list, toggle ban with Enter.",
              "Press ESC for discarding and <S> for saving the values.");
     mvaddstr(LINES - 3, 0, info);
     move(3, 20);
@@ -269,7 +297,7 @@ void handle_banning()
             move(LINES - 1, COLS - 1);
             refresh();
             char settings_string[1024] = "settings cpus \0";
-            for_each_cpu(all_cpus, get_new_ban_values, settings_string);
+            for_each_cpu(all_cpus, get_new_cpu_ban_values, settings_string);
             if(!strcmp("settings cpus \0", settings_string)) {
                 strncpy(settings_string + strlen(settings_string),
                         "NULL", 1024 - strlen(settings_string));
@@ -333,7 +361,7 @@ void settings()
             break;
         }
         case 'c':
-            handle_banning();
+            handle_cpu_banning();
             break;
         /* We need to include window changing options as well because the
          * related char was eaten up by getch() already */
@@ -355,19 +383,173 @@ void settings()
     }
 }
 
+int toggle_irq(GList *irq_list, int position)
+{
+    GList *entry = g_list_first(irq_list);
+    int irq_node = 0;
+    while(irq_node != position) {
+        entry = g_list_next(entry);
+        irq_node++;
+    }
+    if(((irq_t *)(entry->data))->is_banned) {
+        ((irq_t *)(entry->data))->is_banned = 0;
+    } else {
+        ((irq_t *)(entry->data))->is_banned = 1;
+    }
+    return ((irq_t *)(entry->data))->is_banned;
+}
+
+void handle_irq_banning()
+{
+    GList *tmp = g_list_copy_deep(all_irqs, copy_irq, NULL);
+    char info[128];
+    attrset(COLOR_PAIR(5));
+    snprintf(info, 128, "%s\n%s",
+             "Move up and down the list, toggle ban with Enter.",
+             "Press ESC for discarding and <S> for saving the values.");
+    mvaddstr(LINES - 3, 0, info);
+    move(1, 20);
+    curs_set(1);
+    refresh();
+    int position = 1;
+    char processing = 1;
+    while(processing) {
+        int direction = getch();
+        switch(direction) {
+        case KEY_UP:
+            if(position > 1) {
+                position--;
+                move(position, 20);
+            }
+            break;
+        case KEY_DOWN:
+            if(position < g_list_length(all_irqs)) {
+                position++;
+                move(position, 20);
+            }
+            break;
+        case '\n':
+        case '\r': {
+            attrset(COLOR_PAIR(3));
+            int banned = toggle_irq(tmp, position - 1);
+            if(banned) {
+                mvprintw(position, 20, "YES");
+            } else {
+                mvprintw(position, 20, "NO ");
+            }
+            move(position, 20);
+            refresh();
+            break;
+        }
+        case 27:
+            processing = 0;
+            curs_set(0);
+            /* Forget the changes */
+            tmp = g_list_copy_deep(all_irqs, copy_irq, NULL);
+            print_all_irqs();
+            attrset(COLOR_PAIR(0));
+            mvprintw(LINES - 3, 0, "                      \
+                                                        ");
+            attrset(COLOR_PAIR(5));
+            mvprintw(LINES - 2, 0, "Press <I> for setting up IRQ banning.\
+                            ");
+            move(LINES - 1, COLS - 1);
+            refresh();
+            break;
+        case 's':
+            processing = 0;
+            all_irqs = tmp;
+            curs_set(0);
+            print_all_irqs();
+            attrset(COLOR_PAIR(0));
+            mvprintw(LINES - 3, 0, "                      \
+                                                        ");
+            attrset(COLOR_PAIR(5));
+            mvprintw(LINES - 2, 0, "Press <I> for setting up IRQ banning.\
+                            ");
+            attrset(COLOR_PAIR(3));
+            move(LINES - 1, COLS - 1);
+            refresh();
+            char settings_string[1024] = "settings ban irqs\0";
+            for_each_irq(all_irqs, get_new_irq_ban_values, settings_string);
+            if(!strcmp("settings ban irqs\0", settings_string)) {
+                strncpy(settings_string + strlen(settings_string),
+                        " NONE", 1024 - strlen(settings_string));
+            }
+            send_settings(settings_string);
+            break;
+        case 'q':
+            processing = 0;
+            close_window(0);
+            break;
+        case KEY_F(3):
+            processing = 0;
+            display_tree();
+            break;
+        case KEY_F(4):
+            processing = 0;
+            settings();
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+void copy_irqs_from_nodes(cpu_node_t *node, void *data __attribute__((unused)))
+{
+    if(g_list_length(node->irqs) > 0) {
+        GList *new = g_list_copy_deep(node->irqs, copy_irq, NULL);
+        all_irqs = g_list_concat(all_irqs, new);
+    }
+    if(g_list_length(node->children) > 0) {
+        for_each_node(node->children, copy_irqs_from_nodes, all_irqs);
+    }                                                                           
+}
+
+void get_all_irqs()
+{
+    all_irqs = g_list_copy_deep(setup.banned_irqs, copy_irq, NULL);
+    for_each_node(tree, copy_irqs_from_nodes, NULL);
+}
+
 void setup_irqs()
 {
     clear();
 
+    get_all_irqs();
+    all_irqs = g_list_sort(all_irqs, sort_all_irqs);
+    print_all_irqs();
     char info[512];
-
-
     snprintf(info, 512, "Press <I> for setting up IRQ banning.");
     attrset(COLOR_PAIR(5));
     mvaddstr(LINES - 2, 0, info);
-
     show_footer();
     refresh();
+
+    int user_input = 1;
+    while(user_input) {
+        int c = getch();
+        switch(c) {
+        case 'i':
+            handle_irq_banning();
+            break;
+        case 'q':
+            user_input = 0;
+            close_window(0);
+            break;
+        case KEY_F(3):
+            user_input = 0;
+            display_tree();
+            break;
+        case KEY_F(4):
+            user_input = 0;
+            settings();
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 void display_tree_node_irqs(irq_t *irq, void *data)

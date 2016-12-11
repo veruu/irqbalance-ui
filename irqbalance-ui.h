@@ -33,6 +33,7 @@ typedef struct irq {
     uint64_t vector;
     uint64_t load;
     uint64_t diff;
+    char is_banned;
 } irq_t;
 
 typedef struct cpu_node {

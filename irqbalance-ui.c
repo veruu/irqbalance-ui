@@ -45,7 +45,8 @@ int init_connection()
 int send_settings(char *data)
 {
     /* send "settings sleep X" to set sleep interval, "settings ban irqs X Y..."
-     * to ban IRQs from balancing
+     * to ban IRQs from balancing, "settings cpus <banned_list>" to setup which
+     * CPUs are forbidden to handle IRQs
      */
     int socket_fd = init_connection();
     if(!socket_fd) {
@@ -118,6 +119,7 @@ void parse_into_tree(char *data)
             token = strtok_r(ptr, " ", &ptr);
             if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
             new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+            new_irq->is_banned = 0;
             new->irqs = g_list_append(new->irqs, new_irq);
             token = strtok_r(ptr, " ", &ptr);
         }
@@ -164,16 +166,15 @@ void parse_setup(char *setup_data)
         token = strtok_r(ptr, " ", &ptr);
         if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
         new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        new_irq->is_banned = 1;
         setup.banned_irqs = g_list_append(setup.banned_irqs, new_irq);
         token = strtok_r(ptr, " ", &ptr);
     }
 
     if(strncmp(token, "BANNED", strlen("BANNED"))) goto out;
     token = strtok_r(ptr, " ", &ptr);
-    refresh();
     for(int i = strlen(token) - 1; i >= 0; i--) {
         char *map = hex_to_bitmap(token[i]);
-        refresh();
         for(int j = 3; j >= 0; j--) {
             if(map[j] == '1') {
                 uint64_t *banned_cpu = malloc(sizeof(uint64_t));
