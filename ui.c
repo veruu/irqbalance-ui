@@ -106,7 +106,9 @@ void print_cpu_line(cpu_ban_t *cpu, void *data)
 {
     int *line_offset = data;
     mvprintw(*line_offset, 0, "CPU %lu", cpu->number);
-    mvprintw(*line_offset, 20, "%s", cpu->is_banned ? "YES" : "NO ");
+    mvprintw(*line_offset, 20, "%s", cpu->is_banned ?
+             "YES                                 " :
+             "NO                                  ");
     (*line_offset)++;
 }
 
@@ -371,9 +373,9 @@ void handle_irq_banning()
             attrset(COLOR_PAIR(3));
             int banned = toggle_irq(tmp, position - 1);
             if(banned) {
-                mvprintw(position, 20, "YES");
+                mvprintw(position, 20, "YES                                  ");
             } else {
-                mvprintw(position, 20, "NO ");
+                mvprintw(position, 20, "NO                                   ");
             }
             move(position, 20);
             refresh();
@@ -486,7 +488,8 @@ void settings()
         int c = getch();
         switch(c) {
         case 's': {
-            mvprintw(LINES - 1, 0, "Press ESC for discarding your input.");
+            mvprintw(LINES - 1, 0, "Press ESC for discarding your input.\
+                                                                      ");
             attrset(COLOR_PAIR(0));
             mvprintw(LINES - 2, 0, "                      \
                                                         ");
