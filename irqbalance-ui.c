@@ -94,7 +94,10 @@ void parse_setup(char *setup_data)
         token = strtok_r(ptr, " ", &ptr);
         if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
         new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        if(strncmp(token, "CLASS", strlen("CLASS"))) goto out;
+        new_irq->class = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
         new_irq->is_banned = 1;
+        new_irq->assigned_to = NULL;
         setup.banned_irqs = g_list_append(setup.banned_irqs, new_irq);
         token = strtok_r(ptr, " ", &ptr);
     }
@@ -121,7 +124,43 @@ out: {
              token);
     perror(invalid_data);
     g_list_free(tree);
+    exit(1);
 }
+}
+
+GList * concat_child_lists(cpu_node_t *node)
+{
+    GList *new = NULL;
+    GList *child_entry = g_list_first(node->children);
+    do {
+        cpu_node_t *child = (cpu_node_t *)child_entry->data;
+        GList *cpu_entry = g_list_first(child->cpu_list);
+        do {
+            uint64_t *cpu = (uint64_t *)cpu_entry->data;
+            new = g_list_append(new, cpu);
+            cpu_entry = g_list_next(cpu_entry);
+        } while(cpu_entry != NULL);
+        child_entry = g_list_next(child_entry);
+    } while(child_entry != NULL);
+
+    return new;
+}
+
+void copy_cpu_list_to_irq(irq_t *irq, void *data)
+{
+    irq->assigned_to = g_list_copy((GList *)data);
+}
+
+void assign_cpu_lists(cpu_node_t *node, void *data __attribute__((unused)))
+{
+    if(g_list_length(node->children) > 0) {
+        for_each_node(node->children, assign_cpu_lists, NULL);
+        node->cpu_list = concat_child_lists(node);
+    } else {
+        node->cpu_list = g_list_append(node->cpu_list, &(node->number));
+    }
+
+    for_each_irq(node->irqs, copy_cpu_list_to_irq, node->cpu_list);
 }
 
 void parse_into_tree(char *data)
@@ -140,6 +179,7 @@ void parse_into_tree(char *data)
         cpu_node_t *new = malloc(sizeof(cpu_node_t));
         new->irqs = NULL;
         new->children = NULL;
+        new->cpu_list = NULL;
         new->type = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
         if(new->type == OBJ_TYPE_NODE) {
             parent = NULL;
@@ -167,6 +207,9 @@ void parse_into_tree(char *data)
             token = strtok_r(ptr, " ", &ptr);
             if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
             new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+            token = strtok_r(ptr, " ", &ptr);
+            if(strncmp(token, "CLASS", strlen("CLASS"))) goto out;
+            new_irq->class = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
             new_irq->is_banned = 0;
             new->irqs = g_list_append(new->irqs, new_irq);
             token = strtok_r(ptr, " ", &ptr);
@@ -184,6 +227,8 @@ void parse_into_tree(char *data)
             }
         }
     }
+
+    for_each_node(tree, assign_cpu_lists, NULL);
     return;
 
 out: {
@@ -193,6 +238,7 @@ out: {
              token);
     perror(invalid_data);
     g_list_free(tree);
+    exit(1);
 }
 }
 

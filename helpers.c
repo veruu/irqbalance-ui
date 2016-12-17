@@ -66,7 +66,8 @@ char * hex_to_bitmap(char hex_digit) {
     return bitmap;
 }
 
-gpointer copy_cpu_ban(gconstpointer src, gpointer data)
+gpointer copy_cpu_ban(gconstpointer src,
+                      gpointer data __attribute__((unused)))
 {
     cpu_ban_t *old = (cpu_ban_t *)src; 
     cpu_ban_t *new = malloc(sizeof(cpu_ban_t));
@@ -75,7 +76,7 @@ gpointer copy_cpu_ban(gconstpointer src, gpointer data)
     return new;
 }
 
-gpointer copy_irq(gconstpointer src, gpointer data)
+gpointer copy_irq(gconstpointer src, gpointer data __attribute__((unused)))
 {
     irq_t *old = (irq_t *)src; 
     irq_t *new = malloc(sizeof(irq_t));
@@ -83,6 +84,8 @@ gpointer copy_irq(gconstpointer src, gpointer data)
     new->load = old->load;
     new->diff = old->diff;
     new->is_banned = old->is_banned;
+    new->class = old->class;
+    new->assigned_to = g_list_copy(old->assigned_to);
     return new;
 }
 
@@ -97,8 +100,8 @@ void for_each_cpu(GList *list, void (*fp)(cpu_ban_t *cpu, void *data),
     }
 }
 
-void for_each_banned_cpu(GList *list,
-        void (*fp)(uint64_t *number, void *data), void *data)
+void for_each_int(GList *list,
+                  void (*fp)(int *number, void *data), void *data)
 {
     GList *entry;
     entry = g_list_first(list);
@@ -134,7 +137,7 @@ void for_each_node(GList *list,
 
 void dump_irq(irq_t *irq, void *data __attribute__((unused)))
 {
-    printf("IRQ %lu\n", irq->vector);
+    printf("IRQ %d\n", irq->vector);
 }
 
 void dump_node(cpu_node_t *node, void *data __attribute__((unused)))

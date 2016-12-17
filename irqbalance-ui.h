@@ -14,6 +14,17 @@
 #define BAN_IRQS "settings ban irqs "
 #define SETUP "setup"
 
+/* IRQ CLASSES (same as irqbalance uses) */
+#define IRQ_NODEF      -1
+#define IRQ_OTHER       0
+#define IRQ_LEGACY      1
+#define IRQ_SCSI        2
+#define IRQ_VIDEO       3
+#define IRQ_ETH         4
+#define IRQ_GBETH       5
+#define IRQ_10GBETH     6
+#define IRQ_VIRT_EVENT  7
+
 /* Typedefs */
 
 typedef enum node_type {
@@ -24,24 +35,27 @@ typedef enum node_type {
 } node_type_e;
 
 typedef struct irq {
-    uint64_t vector;
+    int vector;
     uint64_t load;
     uint64_t diff;
     char is_banned;
+    GList *assigned_to;
+    int class;
 } irq_t;
 
 typedef struct cpu_node {
     node_type_e type;
     int number;
     uint64_t load;
-    uint8_t is_powersave;
+    int is_powersave;
     struct cpu_node *parent;
     GList *children;
     GList *irqs;
+    GList *cpu_list;
 } cpu_node_t;
 
 typedef struct cpu_ban {
-    uint64_t number;
+    int number;
     char is_banned;
 } cpu_ban_t;
 
@@ -57,6 +71,9 @@ int init_connection();
 void send_settings(char *data);
 char * get_data(char *string);
 void parse_setup(char *setup_data);
+GList * concat_child_lists(cpu_node_t *node);
+void copy_cpu_list_to_irq(irq_t *irq, void *data);
+void assign_cpu_lists(cpu_node_t *node, void *data);
 void parse_into_tree(char *data);
 int main();
 
