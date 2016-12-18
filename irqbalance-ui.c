@@ -16,6 +16,8 @@
 
 GList *tree = NULL;
 setup_t setup;
+GMainLoop *main_loop;
+int is_tree = 1;
 
 int init_connection()
 {
@@ -68,7 +70,6 @@ char * get_data(char *string)
     int len = recv(socket_fd, data, 2048, 0);
     close(socket_fd);
     data[len] = '\0';
-    refresh();
     return data;
 }
 
@@ -94,6 +95,7 @@ void parse_setup(char *setup_data)
         token = strtok_r(ptr, " ", &ptr);
         if(strncmp(token, "DIFF", strlen("DIFF"))) goto out;
         new_irq->diff = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
+        token = strtok_r(ptr, " ", &ptr);
         if(strncmp(token, "CLASS", strlen("CLASS"))) goto out;
         new_irq->class = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
         new_irq->is_banned = 1;
@@ -149,6 +151,7 @@ GList * concat_child_lists(cpu_node_t *node)
 void copy_cpu_list_to_irq(irq_t *irq, void *data)
 {
     irq->assigned_to = g_list_copy((GList *)data);
+    irq->assigned_to = g_list_sort(irq->assigned_to, sort_ints);
 }
 
 void assign_cpu_lists(cpu_node_t *node, void *data __attribute__((unused)))
@@ -242,30 +245,54 @@ out: {
 }
 }
 
+gboolean rescan_tree(gpointer data __attribute__((unused)))
+{
+    char *setup_data = get_data(SETUP);
+    parse_setup(setup_data);
+    char *irqbalance_data = get_data(STATS);
+    parse_into_tree(irqbalance_data);
+    if(is_tree) {
+        display_tree();
+    }
+
+    return TRUE;
+}
+
+gboolean key_loop(gpointer data __attribute__((unused)))
+{
+    int c = getch();
+    switch(c) {
+    case 'q':
+        close_window(0);
+        break;
+    case KEY_F(3):
+        is_tree = 1;
+        display_tree();
+        break;
+    case KEY_F(4):
+        is_tree = 0;
+        settings();
+        break;
+    case KEY_F(5):
+        is_tree = 0;
+        setup_irqs();
+        break;
+    default:
+        break;
+    }
+    return TRUE;
+}
+
 int main()
 {
     init();
 
-    int loop = 1;
-    while(loop) {
-        int c = getch();
-        switch(c) {
-        case 'q':
-            loop = 0;
-            break;
-        case KEY_F(3):
-            display_tree();
-            break;
-        case KEY_F(4):
-            settings();
-            break;
-        case KEY_F(5):
-            setup_irqs();
-            break;
-        default:
-            break;
-        }
-    }
+    main_loop = g_main_loop_new(NULL, FALSE);
+    g_timeout_add_seconds(5, rescan_tree, NULL);
+    g_timeout_add_seconds(1, key_loop, NULL);
+    g_main_loop_run(main_loop);
 
+
+    g_main_loop_quit(main_loop);
     close_window(0);
 }

@@ -9,6 +9,7 @@ extern GList *tree;
 
 /* Helper functions */
 
+gint sort_ints(gconstpointer First, gconstpointer Second);
 gint sort_all_cpus(gconstpointer First, gconstpointer Second);
 gint sort_all_irqs(gconstpointer First, gconstpointer Second);
 char * hex_to_bitmap(char hex_digit);

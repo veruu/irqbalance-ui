@@ -7,6 +7,22 @@
 #include "ui.h"
 
 
+gint sort_ints(gconstpointer First, gconstpointer Second)
+{
+    int *first = (int *)First;
+    int *second = (int *)Second;
+    if(*first < *second) {
+        return -1;
+    }
+    if(*first == *second) {
+        return 0;
+    }
+    if(*first > *second) {
+        return 1;
+    }
+    return 1;
+}
+
 gint sort_all_cpus(gconstpointer First, gconstpointer Second)
 {
     cpu_ban_t *first, *second;

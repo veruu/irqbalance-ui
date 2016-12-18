@@ -1,0 +1,11 @@
+
+module my-irqbalance 1.0;
+
+require {
+	type proc_t;
+	type sysctl_irq_t;
+	class filesystem associate;
+}
+
+#============= sysctl_irq_t ==============
+allow sysctl_irq_t proc_t:filesystem associate;

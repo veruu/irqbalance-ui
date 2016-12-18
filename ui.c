@@ -49,6 +49,9 @@ char * check_control_in_sleep_input(int max_len, int column_offest, int line_off
     while(iteration < max_len) {
         int new = getch();
 		switch(new) {
+        case ERR:
+            /* No input is ready for nonblocking getch() call */
+            break;
         case '\r':
         case '\n':
             input_to[iteration] = '\0';
@@ -213,10 +216,10 @@ void handle_cpu_banning()
 {
     GList *tmp = g_list_copy_deep(all_cpus, copy_cpu_ban, NULL);
     attrset(COLOR_PAIR(5));
-    mvprintw(LINES - 3, 1, "%s\n%s",
-             "Move up and down the list, toggle ban with Enter.",
-             " Press ESC for discarding and <S> for saving the values.");
-    move(5, 22);
+    mvprintw(LINES - 3, 1, "Move up and down the list, toggle ban with Enter.");
+    mvprintw(LINES - 2, 1,
+             "Press ESC for discarding and <S> for saving the values.");
+    move(5, 19);
     curs_set(1);
     refresh();
     int position = 5;
@@ -227,13 +230,13 @@ void handle_cpu_banning()
         case KEY_UP:
             if(position > 5) {
                 position--;
-                move(position, 22);
+                move(position, 19);
             }
             break;
         case KEY_DOWN:
             if(position <= g_list_length(all_cpus) + 3) {
                 position++;
-                move(position, 22);
+                move(position, 19);
             }
             break;
         case '\n':
@@ -241,11 +244,11 @@ void handle_cpu_banning()
             attrset(COLOR_PAIR(3));
             int banned = toggle_cpu(tmp, position - 5);
             if(banned) {
-                mvprintw(position, 22, "YES");
+                mvprintw(position, 19, "YES");
             } else {
-                mvprintw(position, 22, "NO ");
+                mvprintw(position, 19, "NO ");
             }
-            move(position, 22);
+            move(position, 19);
             refresh();
             break;
         }
@@ -291,10 +294,12 @@ void handle_cpu_banning()
             close_window(0);
             break;
         case KEY_F(3):
+            is_tree = 1;
             processing = 0;
             display_tree();
             break;
         case KEY_F(5):
+            is_tree = 0;
             processing = 0;
             setup_irqs();
             break;
@@ -390,9 +395,9 @@ void handle_irq_banning()
 {
     GList *tmp = g_list_copy_deep(all_irqs, copy_irq, NULL);
     attrset(COLOR_PAIR(5));
-    mvprintw(LINES - 3, 1, "%s\n%s",
-             "Move up and down the list, toggle ban with Enter.",
-             " Press ESC for discarding and <S> for saving the values.");
+    mvprintw(LINES - 3, 1, "Move up and down the list, toggle ban with Enter.");
+    mvprintw(LINES - 2, 1,
+             "Press ESC for discarding and <S> for saving the values.");
     move(3, 19);
     curs_set(1);
     refresh();
@@ -468,10 +473,12 @@ void handle_irq_banning()
             close_window(0);
             break;
         case KEY_F(3):
+            is_tree = 1;
             processing = 0;
             display_tree();
             break;
         case KEY_F(4):
+            is_tree = 0;
             processing = 0;
             settings();
             break;
@@ -489,6 +496,7 @@ void init()
     curs_set(0);
     nonl();
     cbreak();
+    nodelay(stdscr, TRUE);
     echo();
     if(has_colors()) {
         start_color();
@@ -558,10 +566,12 @@ void settings()
             close_window(0);
             break;
         case KEY_F(3):
+            is_tree = 1;
             user_input = 0;
             display_tree();
             break;
         case KEY_F(5):
+            is_tree = 0;
             user_input = 0;
             setup_irqs();
             break;
@@ -595,10 +605,12 @@ void setup_irqs()
             close_window(0);
             break;
         case KEY_F(3):
+            is_tree = 1;
             user_input = 0;
             display_tree();
             break;
         case KEY_F(4):
+            is_tree = 0;
             user_input = 0;
             settings();
             break;
@@ -664,24 +676,4 @@ void display_tree()
     show_frame();
     show_footer();
     refresh();
-    int processing = 1;
-    while(processing) {
-        int choice = getch();
-	    switch(choice) {
-            case 'q':
-                processing = 0;
-                close_window(0);
-                break;
-            case KEY_F(4):
-                processing = 0;
-                settings();
-                break;
-            case KEY_F(5):
-                processing = 0;
-                setup_irqs();
-                break;
-            default:
-                break;
-        }
-    }
 }

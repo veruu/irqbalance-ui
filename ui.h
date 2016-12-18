@@ -13,7 +13,7 @@
 
 extern GList *tree;
 extern setup_t setup;
-
+extern int is_tree;
 
 void show_frame();
 void show_footer();

@@ -25,6 +25,7 @@
 #define IRQ_10GBETH     6
 #define IRQ_VIRT_EVENT  7
 
+
 /* Typedefs */
 
 typedef enum node_type {
@@ -75,6 +76,7 @@ GList * concat_child_lists(cpu_node_t *node);
 void copy_cpu_list_to_irq(irq_t *irq, void *data);
 void assign_cpu_lists(cpu_node_t *node, void *data);
 void parse_into_tree(char *data);
+gboolean rescan_tree(gpointer data);
 int main();
 
 
