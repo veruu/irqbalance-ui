@@ -53,6 +53,7 @@ typedef struct cpu_node {
     GList *children;
     GList *irqs;
     GList *cpu_list;
+    char *cpu_mask;
 } cpu_node_t;
 
 typedef struct cpu_ban {
@@ -75,6 +76,7 @@ void parse_setup(char *setup_data);
 GList * concat_child_lists(cpu_node_t *node);
 void copy_cpu_list_to_irq(irq_t *irq, void *data);
 void assign_cpu_lists(cpu_node_t *node, void *data);
+void assign_cpu_mask(cpu_node_t *node, void *data);
 void parse_into_tree(char *data);
 gboolean rescan_tree(gpointer data);
 int main();

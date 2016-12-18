@@ -166,6 +166,25 @@ void assign_cpu_lists(cpu_node_t *node, void *data __attribute__((unused)))
     for_each_irq(node->irqs, copy_cpu_list_to_irq, node->cpu_list);
 }
 
+void assign_cpu_mask(cpu_node_t *node, void *data __attribute__((unused)))
+{
+    char *mask = malloc(16 * sizeof(char));
+    mask[0] = '\0';
+    unsigned int sum = 0;
+    GList *list_entry = g_list_first(node->cpu_list);
+    do {
+        int *cpu = list_entry->data;
+        sum += 1 << (*cpu);
+        list_entry = g_list_next(list_entry);
+    } while(list_entry != NULL);
+    snprintf(mask, 15, "0x%x", sum);
+    node->cpu_mask = mask;
+
+    if(g_list_length(node->children) > 0) {
+        for_each_node(node->children, assign_cpu_mask, NULL);
+    }
+}
+
 void parse_into_tree(char *data)
 {
     if(data == NULL) return;
@@ -183,6 +202,7 @@ void parse_into_tree(char *data)
         new->irqs = NULL;
         new->children = NULL;
         new->cpu_list = NULL;
+        new->cpu_mask = NULL;
         new->type = strtol(strtok_r(ptr, " ", &ptr), NULL, 10);
         if(new->type == OBJ_TYPE_NODE) {
             parent = NULL;
@@ -232,6 +252,7 @@ void parse_into_tree(char *data)
     }
 
     for_each_node(tree, assign_cpu_lists, NULL);
+    for_each_node(tree, assign_cpu_mask, NULL);
     return;
 
 out: {

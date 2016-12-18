@@ -514,6 +514,9 @@ void init()
 
 void close_window(int sig)
 {
+    g_list_free(setup.banned_irqs);
+    g_list_free(setup.banned_cpus);
+    g_list_free_full(tree, free);
     endwin();
     exit(EXIT_SUCCESS);
 }
@@ -646,14 +649,15 @@ void display_tree_node(cpu_node_t *node, void *data)
         }
     }
     snprintf(indent + strlen(indent), 32 - strlen(indent),
-            "%s", (char *)asciitree);
+             "%s", (char *)asciitree);
     char copy_to[1024];
     char *numa_available = "\0";
     if((node->type == OBJ_TYPE_NODE) && (node->number == -1)) {
         numa_available = " (This machine is not NUMA-capable)";
     }
-    snprintf(copy_to, 1024, "%s%s, number %d%s\n",
-            indent, node_type_to_str[node->type], node->number, numa_available);
+    snprintf(copy_to, 1024, "%s%s, number %d%s, CPU mask %s\n",
+             indent, node_type_to_str[node->type], node->number, numa_available,
+             node->cpu_mask);
     attrset(COLOR_PAIR(2));
     printw(copy_to);
     if(g_list_length(node->irqs) > 0) {
