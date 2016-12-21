@@ -132,6 +132,11 @@ void get_banned_cpu(int *cpu, void *data __attribute__((unused)))
 void print_cpu_line(cpu_ban_t *cpu, void *data)
 {
     int *line_offset = data;
+    if(cpu->is_banned) {
+        attrset(COLOR_PAIR(10));
+    } else {
+        attrset(COLOR_PAIR(9));
+    }
     mvprintw(*line_offset, 3, "CPU %d", cpu->number);
     mvprintw(*line_offset, 19, "%s", cpu->is_banned ?
              "YES            " :
@@ -150,7 +155,6 @@ void print_all_cpus()
     *line = 5;
     attrset(COLOR_PAIR(2));
     mvprintw(4, 3, "NUMBER          IS BANNED");
-    attrset(COLOR_PAIR(3));
     for_each_cpu(all_cpus, print_cpu_line, line);
 }
 
@@ -170,8 +174,8 @@ void display_banned_cpus()
         snprintf(banned_cpus + strlen(banned_cpus),
                  1024 - strlen(banned_cpus), "None\n");
     }
-    attrset(COLOR_PAIR(1));
-    mvprintw(2, 5, banned_cpus);
+    attrset(COLOR_PAIR(0));
+    mvprintw(2, 5, "%s\n", banned_cpus);
 }
 
 int toggle_cpu(GList *cpu_list, int cpu_number)
@@ -328,6 +332,31 @@ void print_assigned_objects_string(irq_t *irq, int *line_offset)
 void print_irq_line(irq_t *irq, void *data)
 {
     int *line_offset = data;
+    switch(irq->class) {
+    case(IRQ_OTHER):
+        attrset(COLOR_PAIR(1));
+        break;
+    case(IRQ_LEGACY):
+        attrset(COLOR_PAIR(2));
+        break;
+    case(IRQ_SCSI):
+        attrset(COLOR_PAIR(3));
+        break;
+    case(IRQ_VIDEO):
+        attrset(COLOR_PAIR(8));
+        break;
+    case(IRQ_ETH):
+    case(IRQ_GBETH):
+    case(IRQ_10GBETH):
+        attrset(COLOR_PAIR(9));
+        break;
+    case(IRQ_VIRT_EVENT):
+        attrset(COLOR_PAIR(10));
+        break;
+    default:
+        attrset(COLOR_PAIR(0));
+        break;
+    }
     mvprintw(*line_offset, 3, "IRQ %d", irq->vector);
     mvprintw(*line_offset, 19, "%s", irq->is_banned ? "YES" : "NO ");
     print_assigned_objects_string(irq, line_offset);
@@ -341,11 +370,10 @@ void print_all_irqs()
 {
     int *line = malloc(sizeof(int));
     *line = 3;
-    attrset(COLOR_PAIR(2));
+    attrset(COLOR_PAIR(0));
     mvprintw(2, 3,
              "NUMBER          IS BANNED        ASSIGNED TO CPUS       \
-                         CLASS");
-    attrset(COLOR_PAIR(3));
+                         CLASS\n");
     for_each_irq(all_irqs, print_irq_line, line);
 }
 
@@ -507,6 +535,9 @@ void init()
         init_pair(5, COLOR_WHITE, COLOR_RED);
         init_pair(6, COLOR_RED, COLOR_WHITE);
         init_pair(7, COLOR_BLACK, COLOR_CYAN);
+        init_pair(8, COLOR_BLUE, COLOR_BLACK);
+        init_pair(9, COLOR_CYAN, COLOR_BLACK);
+        init_pair(10, COLOR_MAGENTA, COLOR_BLACK);
     }
 
     display_tree();
@@ -648,8 +679,7 @@ void display_tree_node(cpu_node_t *node, void *data)
             snprintf(indent + strlen(indent), 32 - strlen(indent), "   ");
         }
     }
-    snprintf(indent + strlen(indent), 32 - strlen(indent),
-             "%s", (char *)asciitree);
+    snprintf(indent + strlen(indent), 32 - strlen(indent), "%s", asciitree);
     char copy_to[1024];
     char *numa_available = "\0";
     if((node->type == OBJ_TYPE_NODE) && (node->number == -1)) {
@@ -658,7 +688,22 @@ void display_tree_node(cpu_node_t *node, void *data)
     snprintf(copy_to, 1024, "%s%s, number %d%s, CPU mask %s\n",
              indent, node_type_to_str[node->type], node->number, numa_available,
              node->cpu_mask);
-    attrset(COLOR_PAIR(2));
+    switch(node->type) {
+    case(OBJ_TYPE_CPU):
+        attrset(COLOR_PAIR(1));
+        break;
+    case(OBJ_TYPE_CACHE):
+        attrset(COLOR_PAIR(2));
+        break;
+    case(OBJ_TYPE_PACKAGE):
+        attrset(COLOR_PAIR(8));
+        break;
+    case(OBJ_TYPE_NODE):
+        attrset(COLOR_PAIR(9));
+        break;
+    default:
+        break;
+    }
     printw(copy_to);
     if(g_list_length(node->irqs) > 0) {
         for_each_irq(node->irqs, display_tree_node_irqs, indent);

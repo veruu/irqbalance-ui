@@ -124,7 +124,7 @@ out: {
     char invalid_data[128];
     snprintf(invalid_data, 128, "Invalid data sent. Unexpected token: %s\n",
              token);
-    perror(invalid_data);
+    printf("%s\n", invalid_data);
     g_list_free(tree);
     exit(1);
 }
@@ -260,7 +260,7 @@ out: {
     char invalid_data[128];
     snprintf(invalid_data, 128, "Invalid data sent. Unexpected token: %s\n",
              token);
-    perror(invalid_data);
+    printf("%s\n", invalid_data);
     g_list_free(tree);
     exit(1);
 }
@@ -306,6 +306,10 @@ gboolean key_loop(gpointer data __attribute__((unused)))
 
 int main()
 {
+    if(getuid() != 0) {
+        printf("This program needs to be executed with root priviledges\n");
+        return EACCES;
+    }
     init();
 
     main_loop = g_main_loop_new(NULL, FALSE);
